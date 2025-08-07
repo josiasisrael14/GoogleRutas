@@ -1,0 +1,260 @@
+@model IEnumerable<GoogleRuta.Models.ColorTraces>
+
+@{
+    ViewData["Title"] = "Tipos Elementos";
+}
+@section Styles
+{
+    <style>
+        .icono-profesional {
+            color: #0056b3;
+            /* Un azul más oscuro y profesional */
+            font-size: 24px;
+            /* Un tamaño específico en píxeles si no usas las clases de FA */
+            transition: color 0.3s ease;
+            /* Transición suave para el color */
+        }
+
+        .icono-profesional:hover {
+            color: #007bff;
+            /* Un color ligeramente más claro al pasar el mouse */
+        }
+
+
+        /* Estilo para los iconos de la tabla */
+        .action-icon {
+            color: #0056b3;
+            /* Un azul más oscuro y profesional */
+            font-size: 1.25rem;
+            /* Un tamaño relativo para que se vean bien */
+            margin: 0 5px;
+            /* Pequeño espacio horizontal entre iconos */
+            cursor: pointer;
+            transition: color 0.2s ease-in-out;
+        }
+
+        .action-icon:hover {
+            color: #007bff;
+            /* Color más claro al pasar el mouse */
+            text-decoration: none;
+            /* Quita el subrayado en el hover */
+        }
+
+        /* Estilo para el icono de eliminar, para que sea rojo */
+        .eliminar-elemento .fas.fa-trash-alt {
+            color: #dc3545;
+            /* Rojo de Bootstrap para una alerta */
+        }
+
+        .eliminar-elemento:hover .fas.fa-trash-alt {
+            color: #c82333;
+            /* Un rojo más oscuro al pasar el mouse */
+        }
+    </style>
+}
+<div class="text-center">
+    <a href="#" class="registrar-usuario icono-profesional" data-toggle="modal" data-target="#registroModal"
+        style="margin-right: 15px;">
+        <i class="fas fa-user-plus fa-lg"></i>
+    </a>
+
+    <a href="https://fontawesome.com/search?q=box&o=r" class="buscar-icono icono-profesional">
+        <i class="fas fa-search fa-lg" title="Buscar icono"></i>
+    </a>
+</div>
+
+<div class="modal fade" id="registroModal" tabindex="-1" role="dialog" aria-labelledby="registroModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="registroModalLabel">Tipos Elementos</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <!-- Dentro de tu <div class="modal-body"> -->
+                <form>
+                    <input type="hidden" id="id" /> <!-- El ID para editar -->
+                    <div class="container-fluid">
+                        <!-- El campo ID ya no es necesario aquí, lo tenemos en el input hidden -->
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="name">Nombre <span class="text-danger">*</span></label>
+                                    <!-- ✅ ID Corregido -->
+                                    <input type="text" class="form-control" id="name" placeholder="Ingrese el nombre"
+                                        required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="color">Color <span class="text-danger">*</span></label>
+                                    <!-- ✅ ID Corregido. Tipo 'color' para un selector de color nativo. -->
+                                    <input type="color" class="form-control" id="color" required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="description">Descripción</label>
+                                    <!-- ✅ ID Corregido. La descripción puede ser opcional. -->
+                                    <input type="text" class="form-control" id="description"
+                                        placeholder="Ingrese la descripción">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" id="guardar">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+<table id="myTable" class="display">
+    <thead>
+        <tr>
+            <th>Id</th>
+            <th>Hilos</th>
+            <th>Color</th>
+            <th>Editar</th>
+            <th>Eliminar</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>@item.Id</td>
+                <td>@item.Name</td>
+                <td>@item.Color</td>
+                <td>
+                    <a class="action-icon" onclick="return editar('@item.Id')">
+                        <i class='fas fa-edit'></i>
+                    </a>
+                </td>
+                <td>
+                    <a href="#" class="eliminar-elemento action-icon" data-id="@item.Id"
+                        onclick="return confirmarEliminacion('@item.Id')">
+                        <i class="fas fa-trash-alt"></i>
+                    </a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            // Esto inicializa la tabla. Ahora debería funcionar.
+            $('#myTable').DataTable();
+
+            // Lógica para el botón Guardar
+            $('#guardar').click(function () {
+                // 1. Crear un objeto con los datos del formulario
+                const dataToSend = {
+                    id: $('#id').val() ? parseInt($('#id').val()) : 0,
+                    name: $('#name').val(),
+                    color: $('#color').val(),
+                    description: $('#description').val()
+                };
+
+                // 2. Enviar los datos como JSON al controlador correcto
+                $.ajax({
+                    url: '/ColorTraces/Add', // ✅ ¡URL CORRECTA!
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(dataToSend),
+                    success: function (response) {
+                        Swal.fire({
+                            title: '¡Guardado!',
+                            text: response.message,
+                            icon: 'success'
+                        }).then(() => {
+                            // Recargar la página para ver el nuevo dato en la tabla
+                            window.location.reload();
+                        });
+                    },
+                    error: function () {
+                        Swal.fire('¡Error!', 'Hubo un error al guardar.', 'error');
+                    }
+                });
+            });
+
+            // Limpiar el modal cuando se cierra
+            $('#registroModal').on('hidden.bs.modal', function (e) {
+                $('#id').val('');
+                $('#name').val('');
+                $('#color').val('#000000'); // Un color por defecto
+                $('#description').val('');
+            });
+        });
+
+        // Función para cargar datos para editar
+        function editar(id) {
+            $.ajax({
+                method: "GET",
+                url: "/ColorTraces/GetById/" + id, // ✅ ¡URL CORRECTA!
+                dataType: "json",
+                success: function (data) {
+                    $('#id').val(data.id);
+                    $('#name').val(data.name);
+                    $('#color').val(data.color);
+                    $('#description').val(data.description);
+
+                    $("#registroModal").modal('show');
+                },
+                error: function () {
+                    alert("No se pudieron cargar los datos para editar.");
+                }
+            });
+            return false;
+        }
+
+        // Función para confirmar la eliminación
+        function confirmarEliminacion(id) {
+            Swal.fire({
+                title: '¿Estás seguro?',
+                text: "¡No podrás revertir esto!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Sí, ¡eliminar!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    eliminarColor(id);
+                }
+            });
+            return false;
+        }
+
+        // Función para realizar la eliminación
+        function eliminarColor(id) {
+            $.ajax({
+                url: '/ColorTraces/Delete/' + id, // ✅ ¡URL CORRECTA!
+                type: 'DELETE',
+                success: function (response) {
+                    Swal.fire('¡Eliminado!', response.message, 'success')
+                        .then(() => {
+                            window.location.reload();
+                        });
+                },
+                error: function () {
+                    Swal.fire('¡Error!', 'No se pudo eliminar el registro.', 'error');
+                }
+            });
+        }
+    </script>
+}

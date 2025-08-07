@@ -1,0 +1,934 @@
+@model List<GoogleRuta.ViewModels.ProjectViewModel>
+@using GoogleRuta.ViewModels
+
+@{
+    ViewData["Title"] = "Project";
+    //var projectIds=TempData["ProjectId"] as int?;
+}
+
+@section Styles {
+    <style>
+        #projectsTable {
+            /* Cambié a #projectsTable para mayor claridad, asumiendo que es el ID de tu tabla */
+            border-collapse: collapse;
+            width: 100%;
+            /* La tabla debe ocupar el 100% del ancho de su contenedor */
+            /* table-layout: fixed; */
+            /* Puedes probar con esto si sigues teniendo problemas, pero no siempre es necesario */
+        }
+
+        #projectsTable td,
+        #projectsTable th {
+            border: 1px solid #ddd;
+            padding: 8px;
+            /* Un poco más de padding para mejor legibilidad */
+            font-size: 14px;
+            /* Un tamaño de fuente más estándar */
+            text-align: left;
+        }
+
+        #projectsTable th {
+            background-color: #f0f0f0;
+            text-align: center;
+            /* Encabezados centrados */
+            font-weight: bold;
+            /* Hacer los encabezados en negrita */
+            white-space: nowrap;
+            /* Evita que los encabezados se rompan en múltiples líneas si el texto es corto */
+            overflow: hidden;
+            /* Oculta cualquier contenido que se desborde */
+            text-overflow: ellipsis;
+            /* Añade puntos suspensivos si el texto se corta */
+            /* Eliminamos todas las reglas 'width', 'min-width', 'max-width' problemáticas aquí. */
+            /* height: auto; */
+            /* Ya es el valor por defecto y no suele ser necesario especificarlo */
+        }
+
+        /* Estilos específicos para las columnas (opcional, para ajustar el ancho manualmente si es necesario) */
+        /* Asegúrate de que estas clases estén en tu HTML en los <th> y <td> */
+        #projectsTable .col-id {
+            width: 5%;
+            /* El ID es corto, puede ocupar un porcentaje pequeño */
+            min-width: 40px;
+            /* Asegura un ancho mínimo */
+            text-align: center;
+        }
+
+        #projectsTable .col-nombre {
+            width: 75%;
+            /* El nombre del proyecto puede ocupar la mayor parte del espacio */
+            min-width: 200px;
+            /* Asegura un ancho mínimo para nombres largos */
+        }
+
+        #projectsTable .col-acciones {
+            width: 20%;
+            /* Las acciones pueden tener un ancho fijo o porcentual */
+            min-width: 100px;
+            /* Asegura espacio para el botón "Ver" */
+            text-align: center;
+            white-space: nowrap;
+            /* Evita que el botón "Ver" se rompa */
+        }
+
+        /* Elimina los estilos para 'fecha-header' ya que no hay fechas */
+        /* th.fecha-header,
+                                                                td.fecha-header {
+                                                                    // ... (estas reglas ya no van) ...
+                                                                } */
+
+        /* Otros estilos que ya tenías y que no son problemáticos */
+        #myTable .btn-xs {
+            font-size: 10px;
+        }
+
+        .icon-button {
+            background: none !important;
+            border: none !important;
+            padding: 0 !important;
+            margin: 0 8px !important;
+            box-shadow: none !important;
+            font-size: 60px;
+            line-height: 1;
+        }
+
+        .icon-button:hover {
+            background: none !important;
+        }
+
+        .icon-button:nth-child(1) i {
+            color: #4285F4;
+        }
+
+        .icon-button:nth-child(2) i {
+            color: #34A853;
+        }
+
+        .icon-button:nth-child(3) i {
+            color: #DB4437;
+        }
+
+        .icon-button:nth-child(4) i {
+            color: #F4B400;
+        }
+
+        .icon-button:nth-child(5) i {
+            color: #0F9D58;
+        }
+
+        /* AÑADIDO: Estilo para el contenedor del mapa */
+        #mapaContainer {
+            height: 300px;
+            width: 100%;
+            border: 1px solid #ccc;
+            margin-top: 15px;
+        }
+
+
+
+        #projectsTable {
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        #projectsTable tbody tr:hover {
+            background-color: #f9f9f9;
+        }
+
+        .btn-info.btn-sm {
+            background-color: #17a2b8;
+            border: none;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 13px;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn-info.btn-sm:hover {
+            background-color: #138496;
+        }
+
+        .icon-col i {
+            font-size: 16px;
+            color: #dc3545;
+            transition: color 0.2s ease;
+        }
+
+        .icon-col i:hover {
+            color: #a71d2a;
+        }
+
+
+        #projectsTable td.col-nombre {
+            font-family: 'Poppins', 'Segoe UI', sans-serif;
+            font-size: 15px;
+            font-weight: 500;
+            color: #5a2bd4;
+            /* Puedes cambiar a otro color si deseas */
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        #projectsTable td.col-nombre::before {
+            content: "\f15c";
+            /* ícono de archivo de FontAwesome */
+            font-family: 'Font Awesome 5 Free';
+            font-weight: 900;
+            color: #ff8c00;
+            /* color del ícono */
+        }
+
+
+        #projectsTable thead th {
+            background-color: #37474f;
+            /* Gris azulado oscuro */
+            color: white;
+            font-weight: 600;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 12px 10px;
+            border-bottom: 2px solid #dee2e6;
+        }
+
+        /*diseño de spinner animacion al cargar pagina diseño*/
+
+        .bar-loader {
+            width: 100px;
+            height: 6px;
+            background: #ccc;
+            overflow: hidden;
+            position: relative;
+            border-radius: 3px;
+        }
+
+        .bar-loader::before {
+            content: '';
+            position: absolute;
+            width: 40%;
+            height: 100%;
+            background: #3498db;
+            animation: slide 1s linear infinite;
+        }
+
+        @@keyframes slide {
+            0% {
+                left: -40%;
+            }
+
+            100% {
+                left: 100%;
+            }
+        }
+
+        #loaderOverlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.85);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        #loaderOverlay p {
+            margin-top: 12px;
+            font-weight: 500;
+            color: #333;
+        }
+
+
+        .icono-proyecto {
+            /* Color base */
+            color: #0056b3;
+            /* Un azul más oscuro y profesional */
+
+            /* Tamaño */
+            font-size: 2.2rem;
+            /* Un tamaño grande pero no exagerado, puedes ajustarlo */
+
+            /* Transición para efectos suaves */
+            transition: color 0.3s ease;
+        }
+
+        .icono-proyecto {
+            color: #163555;
+            /* Color más claro al pasar el mouse */
+            text-decoration: none;
+            /* Evita el subrayado en el enlace */
+        }
+    </style>
+}
+
+<div class="text-center">
+    <a href="#" class="registrar-usuario icono-proyecto" data-toggle="modal" data-target="#registroModal">
+        <i class="fas fa-user-plus"></i>
+    </a>
+</div>
+
+<div class="modal fade" id="registroModal" tabindex="-1" role="dialog" aria-labelledby="registroModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="registroModalLabel">Datos Proyecto</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form enctype="multipart/form-data">
+                    <div class="container-fluid">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="id">ID</label>
+                                    <input type="text" class="form-control" id="id""
+                                    readonly>
+                                </div>
+                            </div>
+                            <div class=" col-md-6">
+                                    <div class="form-group">
+                                        <label for="nombre">Nombre <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="nombre"
+                                            placeholder="Ingrese el nombre" required>
+                                        <span id="nombre-error" class="text-danger" style="display: none;"></span>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="identificador">Identificador <span
+                                                class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="identificador"
+                                            placeholder="Ingrese el identificador" required>
+                                        <span id="identificador-error" class="text-danger"
+                                            style="display: none;"></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row mt-3">
+                                <div class="col-md-12">
+                                    <div class="form-group">
+                                        <label for="usuarios">Usuarios</label>
+                                        <input type="text" class="form-control" id="usuarios"
+                                            placeholder="Ingrese usuarios o seleccione">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row mt-3">
+                                <div class="col-md-12">
+                                    <div class="form-group">
+                                        <label for="proyectosPrincipales">Proyectos Principales</label>
+                                        <select class="form-control" id="proyectosPrincipales">
+                                            <option value="">Seleccione proyectos principales</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row mt-3">
+                                <div class="col-md-12">
+                                    <div class="form-group">
+                                        <label for="mapSearch">Buscar Ubicación</label>
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" id="mapSearch"
+                                                placeholder="Ej: Latitud, Longitud o dirección">
+                                            <div class="input-group-append">
+                                                <button class="btn btn-outline-secondary" type="button"
+                                                    id="searchMapBtn">
+                                                    <i class="fas fa-search"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row mt-3">
+                                <div class="col-md-12">
+                                    <div id="mapaContainer">
+                                        <p class="text-center text-muted mt-5">Cargando Google Maps...</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-info" id="disenarAreaBtn">Diseñar Área</button>
+
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" id="guardar">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loader oculto por defecto -->
+<div id="loaderOverlay">
+    <div class="loader-content">
+        <i class="fas fa-spinner fa-spin fa-3x"></i>
+        <p>Cargando diseño...</p>
+    </div>
+</div>
+
+
+<table id="projectsTable" class="display">
+    <thead>
+        <tr>
+            <th>Id</th>
+            <th>Nombre del Proyecto</th>
+            <th>Ver</th>
+            <th>Eliminar</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var project in Model ?? new List<ProjectViewModel>())
+        {
+            <tr>
+                <td>@project.Id</td>
+                <td class="col-nombre">@project.Name</td>
+                <td>
+                    <a href="#" class="btn btn-sm btn-link action-icon" onclick="return verProyecto('@project.Id')">
+                        <i class="fas fa-eye" title="Ver Proyecto"></i>
+                    </a>
+                </td>
+                <td class="icon-col">
+                    <a href="#" class="btn btn-sm btn-link action-icon"
+                        onclick="return confirmarEliminacion('@project.Id')">
+                        <i class="fas fa-trash-alt text-danger" title="Eliminar Proyecto"></i>
+                    </a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@section Scripts {
+    <script>
+        let processedCoords = [];
+
+        processedCoords = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(TempData["ProcessedCoordinates"] ?? new List<object>()));
+        var projectIdFromTempData = @Html.Raw(Json.Serialize(TempData["ProjectId"]));
+        var nameFromTempData = @Html.Raw(Json.Serialize(TempData["Name"]));
+        const placedElements = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(TempData["PlacedElements"] ?? "[]"));
+
+        console.log("📍 Coordenadas desde backend:", processedCoords);
+        console.log(" ver id que se enviara al modal de project", projectIdFromTempData);
+        console.log("📦 Elementos desde backend:", placedElements);
+
+        var map;
+        var marker;
+        var geocoder; // Variable para el Geocodificador
+
+        // La función para inicializar el mapa, ahora asíncrona y usando importLibrary
+        async function iniciarMap() {
+            console.log("Google Maps API cargada e iniciando mapa...");
+
+            // Importar las librerías necesarias de Google Maps
+            // Asegúrate de que las APIs correspondientes estén habilitadas en Google Cloud Console
+            const { Map } = await google.maps.importLibrary("maps");
+            const { Marker } = await google.maps.importLibrary("marker");
+            const { Geocoder } = await google.maps.importLibrary("geocoding");
+
+            geocoder = new Geocoder(); // Inicializa el Geocodificador aquí
+
+            var mapElement = document.getElementById('mapaContainer');
+            if (mapElement) {
+                $('#mapaContainer').empty(); // Limpia el mensaje de carga
+
+                map = new Map(mapElement, {
+                    zoom: 2, // Zoom inicial amplio
+                    center: { lat: 0, lng: 0 }, // Centro inicial (ej. ecuador)
+                    mapTypeId: google.maps.MapTypeId.SATELLITE, // Inicia en satélite
+                    mapTypeControl: true // Muestra el control de tipo de mapa (Mapa/Satélite)
+                });
+
+                // Listener para clics en el mapa: crea/actualiza el marcador y el input de búsqueda
+                map.addListener('click', function (e) {
+                    placeMarkerAndPanTo(e.latLng, map);
+                });
+
+            } else {
+                console.error("Error: El elemento 'mapaContainer' no fue encontrado.");
+            }
+        }
+
+        // Función auxiliar para colocar o mover el marcador y actualizar el input
+        function placeMarkerAndPanTo(latLng, map) {
+            if (marker) {
+                marker.setPosition(latLng); // Mueve el marcador existente
+            } else {
+                // Crea un nuevo marcador si no existe
+                marker = new google.maps.Marker({
+                    position: latLng,
+                    map: map
+                });
+            }
+            map.panTo(latLng); // Centra el mapa en la nueva posición
+            $('#mapSearch').val(`${latLng.lat()}, ${latLng.lng()}`); // Actualiza el campo de búsqueda
+        }
+
+        $(document).ready(function () {
+
+            $('#projectsTable').DataTable({
+                "order": [[0, "asc"]],
+                "pageLength": 200,
+                "lengthMenu": [[10, 25, 50, 100, 200, -1], [10, 25, 50, 100, 200, "All"]],
+                "dom": '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' + // Agregado el campo de búsqueda 'f'
+                    '<"row"<"col-sm-12 col-md-6"B>>rtip',
+                "buttons": [
+                    {
+                        "extend": 'copy',
+                        "text": '<i class="fas fa-copy"></i>',
+                        "titleAttr": 'Copiar',
+                        "className": 'icon-button',
+                        "exportOptions": {
+                            "columns": ':not(.no-export)'
+                        }
+                    },
+                    {
+                        "extend": 'excel',
+                        "text": '<i class="fas fa-file-excel"></i>',
+                        "titleAttr": 'Excel',
+                        "className": 'icon-button',
+                        "exportOptions": {
+                            "columns": ':not(.no-export)',
+                            "customize": function (xlsx) {
+                                var sheet = xlsx.xl.worksheets['sheet1.xml'];
+                                $('col', sheet).each(function () {
+                                    $(this).attr('width', 20);
+                                });
+                            }
+                        }
+                    },
+                    {
+                        "extend": 'print',
+                        "text": '<i class="fas fa-print"></i>',
+                        "titleAttr": 'Imprimir',
+                        "className": 'icon-button',
+                        "exportOptions": {
+                            "columns": ':not(.no-export)'
+                        }
+                    }
+                ],
+                "columnDefs": [
+                    { "targets": [0], "className": 'no-export' }
+                ]
+            });
+
+
+            // Lógica cuando el modal se oculta (se cierra)
+            $('#registroModal').on('hidden.bs.modal', function (e) {
+                // Limpia los campos del formulario
+                $('#id').val('');
+                $('#rol').val('');
+                $('#nombre').val('');
+                $('#identificador').val('');
+                $('#usuarios').val('');
+                $('#proyectosPrincipales').val('');
+                $('#mapSearch').val('');
+
+                processedCoords = []; // Limpia las coordenadas procesadas
+                projectIdFromTempData = null; // Limpia el ID del proyecto
+                nameFromTempData = null;
+                placedElements = [];
+                // Limpia el marcador al cerrar el modal
+                if (marker) {
+                    marker.setMap(null);
+                    marker = null;
+                }
+
+            });
+
+            $('#searchMapBtn').on('click', function () {
+                const searchTerm = $('#mapSearch').val().trim(); // Usa .trim() para eliminar espacios extra
+                if (!searchTerm) {
+                    alert('Por favor, ingrese un término de búsqueda o coordenadas.');
+                    return;
+                }
+
+                const parts = searchTerm.split(',').map(part => parseFloat(part.trim()));
+
+                // Verifica si la entrada es un par de coordenadas numéricas válidas
+                if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+                    const lat = parts[0];
+                    const lng = parts[1];
+                    const latLng = new google.maps.LatLng(lat, lng);
+
+                    map.setZoom(15); // Puedes ajustar el nivel de zoom inicial si es una coordenada directa
+                    placeMarkerAndPanTo(latLng, map);
+                    // NOTA: placeMarkerAndPanTo ya actualiza el input con estas mismas coordenadas
+                    // Entonces, el input mostrará las coordenadas que el usuario introdujo (si son válidas)
+                    // en lugar de las geocodificadas.
+
+                } else {
+                    // Si no es un par de coordenadas, entonces trata la entrada como una dirección
+                    if (geocoder && typeof geocoder.geocode === 'function') {
+                        geocoder.geocode({ 'address': searchTerm }, function (results, status) {
+                            if (status === 'OK') {
+                                if (results[0]) {
+                                    map.setZoom(15);
+                                    placeMarkerAndPanTo(results[0].geometry.location, map);
+                                    // Aquí, placeMarkerAndPanTo actualizará el input con las coordenadas de la geocodificación
+                                } else {
+                                    alert('No se encontraron resultados para la ubicación.');
+                                }
+                            } else {
+                                alert('La geocodificación falló debido a: ' + status);
+                                console.error('Geocoding error:', status);
+                            }
+                        });
+                    } else {
+                        console.error("Geocodificador de Google Maps no disponible.");
+                    }
+                }
+            });
+
+             // abre el modal automaticamente
+            $('#registroModal').modal('show');
+            // Lógica cuando el modal se muestra (se abre)
+            $('#registroModal').on('shown.bs.modal', function (e) {
+                console.log('Modal de registro mostrado. Preparando para cargar el mapa.');
+
+                if (processedCoords && processedCoords.length > 0) {
+                    console.log('Mostrando coordenadas dentro del evento del modal:', processedCoords);
+                }
+
+                if (placedElements && placedElements.length > 0) {
+                    console.log('Mostrando coordenadas de cajas o otros elementos en el modal', placedElements);
+                }
+
+                $('#id').val(projectIdFromTempData);
+                $('#nombre').val(nameFromTempData);
+
+                //$('#id').val(usuarios.role.id);
+
+                // Llama a iniciarMap aquí solo si el mapa no ha sido inicializado aún
+                if (!map) {
+                    iniciarMap();
+                } else {
+                    // Si el mapa ya está inicializado, solo fuerza un redimensionamiento
+                    // (útil si el modal se abrió, cerró y volvió a abrir)
+                    google.maps.event.trigger(map, 'resize');
+                }
+            });
+
+            const disenarAreaBtn = document.getElementById('disenarAreaBtn');
+            const mapSearchInputModal = document.getElementById('mapSearch');
+
+            disenarAreaBtn.addEventListener('click', function () {
+                const coordsText = mapSearchInputModal.value.trim();
+                if (coordsText) {
+                    const parts = coordsText.split(',').map(part => parseFloat(part.trim()));
+
+                    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+                        const lat = parts[0];
+                        const lng = parts[1];
+
+                        // Realizar una petición POST al controlador para navegar a la vista Diseño
+                        // Usamos AJAX para enviar los datos, y esperamos una redirección del servidor
+                        $.ajax({
+                            url: '/ProjectController/GoToDesign', // URL del nuevo método en tu controlador
+                            type: 'POST', // O GET si prefieres usar QueryString, pero POST es más limpio
+                            data: { lat: lat, lng: lng }, // Envía los datos como un objeto JSON o FormData
+                            success: function (response) {
+                                // Si el controlador devuelve un JSON con redirectUrl, maneja la redirección aquí
+                                if (response && response.success && response.redirectUrl) {
+                                    // Oculta el modal antes de redirigir
+                                    $("#registroModal").modal("hide");
+                                    // Realiza la redirección
+                                    window.location.href = response.redirectUrl; // ¡Esta es la clave!
+                                } else {
+                                    console.error("Respuesta inesperada del servidor:", response);
+                                    Swal.fire({
+                                        title: '¡Error!',
+                                        text: 'Respuesta inesperada al intentar diseñar el área.',
+                                        icon: 'error',
+                                        confirmButtonText: 'Aceptar'
+                                    });
+                                }
+                            },
+                            error: function (xhr, status, error) {
+                                console.error("Error al enviar coordenadas para diseñar:", xhr.responseText);
+                                Swal.fire({
+                                    title: '¡Error!',
+                                    text: 'No se pudo iniciar el diseño del área. Intente de nuevo.',
+                                    icon: 'error',
+                                    confirmButtonText: 'Aceptar'
+                                });
+                            }
+                        });
+
+                        // Cierra el modal inmediatamente después de enviar la solicitud AJAX
+                        // para que el usuario no interactúe con él mientras la página se carga.
+                        //$('#registroModal').modal('hide');
+
+                    } else {
+                        alert('Por favor, ingrese coordenadas válidas en formato "latitud, longitud".');
+                    }
+                } else {
+                    alert('Por favor, ingrese las coordenadas o dirección en el campo de búsqueda antes de diseñar el área.');
+                }
+            });
+
+            $('#guardar').click(function () {
+                // 1. Construir un objeto JavaScript que coincida con tu ProjectViewModel
+                const dataToSend = {
+                    id: $('#id').val() ? parseInt($('#id').val()) : 0, // Asegúrate de tener un input con id="id" si editas
+                    name: $('#nombre').val(),
+                    coordinates: [], // Inicializamos el arreglo de coordenadas
+                    placedElementse: []
+                };
+
+                // 2. Llenar las coordenadas SOLO si existen
+                if (processedCoords && processedCoords.length > 0) {
+
+                    if (typeof processedCoords === 'string') {
+                        try {
+                            dataToSend.coordinates = JSON.parse(processedCoords);
+                        } catch (e) {
+                            console.error("Error al parsear las coordenadas:", e);
+                            // Opcional: mostrar un error al usuario
+                            Swal.fire('¡Error!', 'El formato de las coordenadas es inválido.', 'error');
+                            return; // Detiene el envío
+                        }
+                    } else {
+                        // Si ya es un objeto/array, lo usamos directamente.
+                        dataToSend.coordinates = processedCoords;
+                    }
+                } else {
+                    // Opcional: si las coordenadas son obligatorias, puedes mostrar un error aquí
+                    console.log("No se están enviando coordenadas.");
+                }
+
+                @* if(placedElements && placedElements.length>0)
+                {
+                    dataToSend.placedElementse=placedElements;
+                }
+                else
+                {
+                    console.log("No se están enviando elementos colocados.");
+                } *@
+
+                                                    if (placedElements && placedElements.length > 0) {
+                    // Comprobamos si es un string, como vimos en tu captura de pantalla.
+                    if (typeof placedElements === 'string') {
+                        try {
+                            // Si es un string, lo convertimos a un objeto/array de JavaScript.
+                            dataToSend.placedElementse = JSON.parse(placedElements);
+                        } catch (e) {
+                            console.error("Error al parsear los elementos colocados:", e);
+                            Swal.fire('¡Error!', 'El formato de los datos de elementos es inválido.', 'error');
+                            return; // Detiene el envío
+                        }
+                    } else {
+                        // Si ya es un array (el caso ideal), lo usamos directamente.
+                        dataToSend.placedElementse = placedElements;
+                    }
+                } else {
+                    console.log("No se están enviando elementos colocados.");
+                }
+
+                console.log("Datos a enviar al servidor:", dataToSend);
+
+                // 3. Modificar la llamada AJAX para enviar JSON
+                $.ajax({
+                    url: '/ProjectController/Add', // Asegúrate que la URL sea la correcta
+                    type: 'POST',
+                    // ¡Estas dos líneas son clave!
+                    contentType: 'application/json',
+                    data: JSON.stringify(dataToSend), // Convertimos el objeto a un string JSON
+
+                    success: function (response) {
+                        Swal.fire({
+                            title: '¡Guardado!',
+                            text: response.message,
+                            icon: 'success'
+                        }).then(() => {
+                            $("#registroModal").modal("hide");
+                            // Recargar la página para ver los cambios
+                            window.location.reload();
+                        });
+                    },
+                    error: function (xhr, status, error) {
+                        // Mejor manejo de errores
+                        const errorResponse = xhr.responseJSON;
+                        const errorMessage = errorResponse ? errorResponse.message : 'No se pudo completar la operación.';
+                        Swal.fire({
+                            title: '¡Error!',
+                            text: errorMessage,
+                            icon: 'error'
+                        });
+                    }
+                });
+            });
+
+
+        });
+
+        function verProyecto(id) {
+            $.ajax({
+                method: "GET",
+                url: "/Project/GetById/" + id,
+                dataType: "json",
+                success: function (data) {
+                    if (data && data.coordinates && data.coordinates.length > 0) {
+                        const coords = JSON.stringify(data.coordinates);
+                        console.log("trayendo coordneadas por Id", coords);
+                        console.log("Elementos cajas .ect, recibidos de GetById:", data.placedElementse);
+                        const postData = {
+                            projectId: id,
+                            coordinates: data.coordinates,
+                            name: data.name,
+                            placedElements: data.placedElementse
+                        };
+                        $.ajax({
+                            type: "POST",
+                            url: "/Project/RedirectToDiseno",
+                            contentType: "application/json",
+                            data: JSON.stringify(postData),
+                            //data: JSON.stringify({ coordinates: data.coordinates }),
+                            success: function (response) {
+                                if (response.success) {
+                                    // Mostrar la animación de carga
+                                    document.getElementById('loaderOverlay').style.display = 'flex';
+                                    setTimeout(function () {
+                                        window.location.href = response.redirectUrl;
+                                    }, 1200); // Pequeña espera para mostrar la animación
+                                } else {
+                                    alert("No se pudo redirigir");
+                                }
+                            },
+                            error: function (err) {
+                                alert("Error al redirigir: " + err.responseText);
+                            }
+                        });
+                    } else {
+                        alert("No hay coordenadas para este proyecto.");
+                    }
+                },
+                error: function (errormessage) {
+                    alert("Error al obtener proyecto: " + errormessage.responseText);
+                }
+            });
+
+            return false;
+        }
+
+        function confirmarEliminacion(id) {
+            Swal.fire({
+                title: '¿Estás seguro?',
+                text: '¡No podrás revertir esto!',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    eliminarProyecto(id);
+                }
+            });
+            return false;
+        }
+
+        function eliminarProyecto(id) {
+            $.ajax({
+                url: '/Project/Delete/' + id,
+                type: 'DELETE',
+                success: function (response) {
+                    // El servidor debería devolver un JSON como { message: "Eliminado Correctamente" }
+                    Swal.fire({
+                        title: '¡Eliminado!',
+                        text: response.message, // Mostrar el mensaje de éxito del servidor
+                        icon: 'success', // Icono de éxito
+                        confirmButtonText: 'Aceptar'
+                    }).then(() => {
+                        // Después de que el usuario acepta el mensaje de éxito, recargar la página
+                        // Esto asegura que la tabla refleje el cambio (proyecto eliminado)
+                        window.location.reload();
+                    });
+                },
+                                                                @* success: function (response) {
+                    Swal.fire({
+                        title: '¡Eliminado!',
+                        text: response.message,
+                        icon: 'success',
+                        confirmButtonText: 'Aceptar'
+                    }).then(() => {
+                        window.location = '/Project';
+                    });
+                }, *@
+
+                error: function (jqXHR, textStatus, errorThrown) {
+                    // jqXHR: Objeto que contiene la respuesta completa del error del AJAX (incluido el texto de la respuesta)
+                    // textStatus: Descripción textual del error (ej. "error", "timeout")
+                    // errorThrown: Objeto de excepción HTTP (ej. "Not Found", "Internal Server Error")
+
+                    let mensajeDeErrorParaMostrar = 'Hubo un error inesperado al procesar tu solicitud.'; // Mensaje de error por defecto
+
+                    // Intentar parsear la respuesta del servidor como JSON.
+                    // Esto es crucial porque tu controlador devuelve JSON para los errores (con la propiedad 'message').
+                    try {
+                        const errorResponse = JSON.parse(jqXHR.responseText); // Intenta convertir el texto de la respuesta a un objeto JavaScript
+
+                        // Si el objeto JSON existe y tiene una propiedad 'message', usa ese mensaje.
+                        if (errorResponse && errorResponse.message) {
+                            mensajeDeErrorParaMostrar = errorResponse.message;
+                        } else {
+                            // Si el JSON es válido pero no tiene 'message', o si el responseText es texto plano sin JSON,
+                            // usa directamente el texto del responseText (si existe) o el mensaje por defecto.
+                            mensajeDeErrorParaMostrar = jqXHR.responseText || mensajeDeErrorParaMostrar;
+                        }
+                    } catch (e) {
+                        // Si el 'jqXHR.responseText' no es un JSON válido (ej. el servidor devolvió HTML o solo texto sin formato JSON),
+                        // entonces caemos en este bloque 'catch'. Usamos el texto de la respuesta o el mensaje por defecto.
+                        mensajeDeErrorParaMostrar = jqXHR.responseText || mensajeDeErrorParaMostrar;
+                    }
+
+                    // Mostrar la alerta de error con el mensaje específico (o el por defecto)
+                    Swal.fire({
+                        title: '¡Error!',
+                        text: mensajeDeErrorParaMostrar, // Aquí se mostrará el mensaje específico del controlador (o el fallback)
+                        icon: 'error', // Icono de error
+                        confirmButtonText: 'Aceptar'
+                    });
+                }
+                                                            @* error: function () {
+                    Swal.fire({
+                        title: '¡Error!',
+                        text: 'Hubo un error en la transaccion.',
+                        icon: 'error',
+                        confirmButtonText: 'Aceptar'
+                    });
+                } *@
+                                                            });
+                                                        }
+    </script>
+
+    <script>
+        (g => {
+            var h, a, k, p = "The Google Maps JavaScript API", c = "google", l = "importLibrary", q = "__ib__", m = document, b = window; b = b[c] || (b[c] = {}); var d = b.maps || (b.maps = {}), r = new Set, e = new URLSearchParams, u = () => h || (h = new Promise(async (f, n) => {
+                await (a = m.createElement("script")); e.set("libraries", [...r] + ""); for (k in g) e.set(k.replace(/[A-Z]/g, t => "_" + t[0].toLowerCase()), g[k]); e.set("callback", c + ".maps." + q); a.src = `https://maps.${c}apis.com/maps/api/js?` + e; d[q] = f; a.onerror = () => h = n(Error(p + " could not load.")); a.nonce = m.querySelector("script[nonce]")?.nonce || ""; m.head.append(a)
+            })); d[l] ? console.warn(p + " only loads once. Ignoring:", g) : d[l] = (f, ...n) => r.add(f) && u().then(() => d[l](f, ...n))
+        })
+            ({ key: "AIzaSyDp_qGGShO7CvdR5zFiH7KT4Mk3eGZO6VY", v: "weekly" });
+    </script>
+
+    <!-- Incluye el script correctamente con tu clave -->
+    @*<script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBDaeWicvigtP9xPv919E-RNoxfvC-Hqik&callback=iniciarMap"></script> *@
+
+}

@@ -1,0 +1,387 @@
+@model GoogleRuta.ViewModels.ElementListViewModel
+
+@{
+    ViewData["Title"] = "Tipos Elementos";
+}
+@section Styles
+{
+    <style>
+        .icono-profesional {
+            color: #0056b3;
+            /* Un azul más oscuro y profesional */
+            font-size: 24px;
+            /* Un tamaño específico en píxeles si no usas las clases de FA */
+            transition: color 0.3s ease;
+            /* Transición suave para el color */
+        }
+
+        .icono-profesional:hover {
+            color: #007bff;
+            /* Un color ligeramente más claro al pasar el mouse */
+        }
+
+
+        /* Estilo para los iconos de la tabla */
+        .action-icon {
+            color: #0056b3;
+            /* Un azul más oscuro y profesional */
+            font-size: 1.25rem;
+            /* Un tamaño relativo para que se vean bien */
+            margin: 0 5px;
+            /* Pequeño espacio horizontal entre iconos */
+            cursor: pointer;
+            transition: color 0.2s ease-in-out;
+        }
+
+        .action-icon:hover {
+            color: #007bff;
+            /* Color más claro al pasar el mouse */
+            text-decoration: none;
+            /* Quita el subrayado en el hover */
+        }
+
+        /* Estilo para el icono de eliminar, para que sea rojo */
+        .eliminar-elemento .fas.fa-trash-alt {
+            color: #dc3545;
+            /* Rojo de Bootstrap para una alerta */
+        }
+
+        .eliminar-elemento:hover .fas.fa-trash-alt {
+            color: #c82333;
+            /* Un rojo más oscuro al pasar el mouse */
+        }
+    </style>
+}
+<div class="text-center">
+    <a href="#" class="registrar-usuario icono-profesional" data-toggle="modal" data-target="#registroModal"
+        style="margin-right: 15px;">
+        <i class="fas fa-user-plus fa-lg"></i>
+    </a>
+
+    <a href="https://fontawesome.com/search?q=box&o=r" class="buscar-icono icono-profesional">
+        <i class="fas fa-search fa-lg" title="Buscar icono"></i>
+    </a>
+</div>
+
+<div class="modal fade" id="registroModal" tabindex="-1" role="dialog" aria-labelledby="registroModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="registroModalLabel">Tipos Elementos</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form enctype="multipart/form-data">
+                    <input type="hidden" name="IconoUrl" id="iconoUrl" />
+                    <div class="container-fluid">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="id">ID</label>
+                                    <input type="text" class="form-control" id="id" placeholder="" readonly>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="nombre">Nombre <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="name" placeholder="Ingrese el nombre"
+                                        required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="iconoFile">Ícono / Imagen <span class="text-danger">*</span></label>
+                                    <input type="file" class="form-control" id="iconoFile" name="iconoFile"
+                                        accept="image/*" />
+                                    <small class="form-text text-muted">Sube un ícono representativo del tipo de
+                                        elemento (32x32 recomendado).</small>
+                                    <div id="preview-icono" class="mt-2" style="display: none;">
+                                        <img id="icono-preview-img" src=""
+                                            style="width: 32px; height: 32px; object-fit: contain;" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" id="guardar">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+<table id="myTable" class="display">
+    <thead>
+        <tr>
+            <th>Id</th>
+            <th>Ícono</th>
+            <th>Nombre</th>
+            <th>Editar</th>
+            <th>Eliminar</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var element in Model.Elements)
+        {
+            <tr>
+                <td>@element.Id</td>
+                <td>
+                    <img src="@element.IconoUrl" alt="Ícono" style="width: 32px; height: 32px; object-fit: contain;" />
+                </td>
+                <td>@element.Name</td>
+                <td>
+                    <a class="action-icon" onclick="return editar('@element.Id')">
+                        <i class='fas fa-edit'></i>
+                    </a>
+                </td>
+                <td>
+                    <a href="#" class="eliminar-elemento action-icon" data-id="@element.Id"
+                        onclick="return confirmarEliminacion('@element.Id')">
+                        <i class="fas fa-trash-alt"></i>
+                    </a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@section Scripts {
+    <script>
+
+        $(document).ready(function () {
+
+            document.getElementById("iconoFile").addEventListener("change", function (event) {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        document.getElementById("icono-preview-img").src = e.target.result;
+                        document.getElementById("preview-icono").style.display = "block";
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            $('#myTable').DataTable();
+
+            $('#registroModal').on('shown.bs.modal', function () {
+                const $guardarBtn = $('#guardar');
+                const $camposObligatorios = $(this).find('[required]');
+
+                function validarCampos() {
+                    let todosCompletos = true;
+                    $camposObligatorios.each(function () {
+                        if (!$(this).val()) {
+                            todosCompletos = false;
+                            return false;
+                        }
+                    });
+                    $guardarBtn.prop('disabled', !todosCompletos);
+                }
+
+                $camposObligatorios.on('input', validarCampos);
+                validarCampos();
+            });
+
+            $('#registroModal').on('hidden.bs.modal', function (e) {
+                $('#id').val('');
+                $('#name').val('');
+                $('#iconoFile').val('');
+            });
+
+            $('#name').on('input', function () {
+                var nombre = $(this).val();
+                var regex = /^[A-Za-z\s]+$/;
+
+                if (!regex.test(nombre)) {
+                    $('#rol-error').text('Solo se permiten letras y espacios.').show();
+                    $(this).addClass('is-invalid');
+                } else {
+                    $('#rol-error').hide();
+                    $(this).removeClass('is-invalid');
+                }
+            });
+
+            $('#guardar').click(function () {
+                var fileInput = $('#iconoFile')[0];
+
+                // Mostrar en consola si hay archivo seleccionado
+                if (fileInput.files.length > 0) {
+                    console.log("Archivo seleccionado:", fileInput.files[0]);
+                } else {
+                    console.log("No se seleccionó ningún archivo nuevo");
+                }
+                var nombre = $('#name').val();
+                var regex = /^[A-Za-z\s]+$/;
+
+                if (!regex.test(nombre)) {
+                    Swal.fire({
+                        title: '¡Error!',
+                        text: 'El campo Nombre solo debe contener letras y espacios.',
+                        icon: 'error',
+                        confirmButtonText: 'Aceptar'
+                    });
+                    return;
+                }
+
+                var formData = new FormData();
+                formData.append('name', $('#name').val());
+                formData.append('id', $('#id').val());
+                formData.append('iconoUrl', $('#iconoUrl').val());
+                // Solo agrega la nueva imagen si el usuario seleccionó una
+                var fileInput = $('#iconoFile')[0];
+                if (fileInput.files.length > 0) {
+                    formData.append('iconoFile', fileInput.files[0]);
+                }
+
+                $.ajax({
+                    url: '/Element/Add',
+                    type: 'POST',
+                    data: formData,
+                    contentType: false,
+                    processData: false,
+                    success: function (response) {
+                        Swal.fire({
+                            title: '¡Guardado!',
+                            text: response.message,
+                            icon: 'success',
+                            confirmButtonText: 'Aceptar'
+                        }).then(() => {
+                            $("#registroModal").modal("hide");
+                            $('#name').val('');
+                            window.location = '/Element';
+                        });
+                    },
+                    error: function () {
+                        Swal.fire({
+                            title: '¡Error!',
+                            text: 'Hubo un error al guardar el rol.',
+                            icon: 'error',
+                            confirmButtonText: 'Aceptar'
+                        });
+                    }
+                });
+            });
+        });
+
+        function editar(id) {
+            $.ajax({
+                method: "GET",
+                url: "/Element/GetById/" + id,
+                dataType: "json",
+                success: function (element) {
+                    $('#id').val(element.id);
+                    $('#name').val(element.name);
+                    $('#iconoUrl').val(element.iconoUrl);
+
+                    if (element.iconoUrl) {
+                        $('#icono-preview-img').attr("src", element.iconoUrl);
+                        $('#preview-icono').show();
+                        $('#btnGuardar').prop('disabled', false); // Habilita el botón porque ya hay imagen
+                    } else {
+                        $('#preview-icono').hide();
+                        $('#btnGuardar').prop('disabled', true); // Desactiva si no hay nada
+                    }
+
+                    // Limpia el input de archivo por si acaso
+                    $('#iconoFile').val(null);
+
+                    $("#registroModal").modal('show');
+                },
+                error: function (errormessage) {
+                    alert(errormessage.responseText);
+                }
+            });
+
+            return false;
+        }
+
+
+
+        function confirmarEliminacion(id) {
+            Swal.fire({
+                title: '¿Estás seguro?',
+                text: '¡No podrás revertir esto!',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    eliminarTipoElemento(id);
+                }
+            });
+            return false;
+        }
+
+        function eliminarTipoElemento(id) {
+            $.ajax({
+                url: '/Element/Delete/' + id,
+                type: 'DELETE',
+                success: function (response) {
+                    // El servidor debería devolver un JSON como { message: "Eliminado Correctamente" }
+                    Swal.fire({
+                        title: '¡Eliminado!',
+                        text: response.message, // Mostrar el mensaje de éxito del servidor
+                        icon: 'success', // Icono de éxito
+                        confirmButtonText: 'Aceptar'
+                    }).then(() => {
+                        // Después de que el usuario acepta el mensaje de éxito, recargar la página
+                        // Esto asegura que la tabla refleje el cambio (proyecto eliminado)
+                        window.location.reload();
+                    });
+                },
+
+                error: function (jqXHR, textStatus, errorThrown) {
+                    // jqXHR: Objeto que contiene la respuesta completa del error del AJAX (incluido el texto de la respuesta)
+                    // textStatus: Descripción textual del error (ej. "error", "timeout")
+                    // errorThrown: Objeto de excepción HTTP (ej. "Not Found", "Internal Server Error")
+
+                    let mensajeDeErrorParaMostrar = 'Hubo un error inesperado al procesar tu solicitud.'; // Mensaje de error por defecto
+
+                    // Intentar parsear la respuesta del servidor como JSON.
+                    // Esto es crucial porque tu controlador devuelve JSON para los errores (con la propiedad 'message').
+                    try {
+                        const errorResponse = JSON.parse(jqXHR.responseText); // Intenta convertir el texto de la respuesta a un objeto JavaScript
+
+                        // Si el objeto JSON existe y tiene una propiedad 'message', usa ese mensaje.
+                        if (errorResponse && errorResponse.message) {
+                            mensajeDeErrorParaMostrar = errorResponse.message;
+                        } else {
+                            // Si el JSON es válido pero no tiene 'message', o si el responseText es texto plano sin JSON,
+                            // usa directamente el texto del responseText (si existe) o el mensaje por defecto.
+                            mensajeDeErrorParaMostrar = jqXHR.responseText || mensajeDeErrorParaMostrar;
+                        }
+                    } catch (e) {
+                        // Si el 'jqXHR.responseText' no es un JSON válido (ej. el servidor devolvió HTML o solo texto sin formato JSON),
+                        // entonces caemos en este bloque 'catch'. Usamos el texto de la respuesta o el mensaje por defecto.
+                        mensajeDeErrorParaMostrar = jqXHR.responseText || mensajeDeErrorParaMostrar;
+                    }
+
+                    // Mostrar la alerta de error con el mensaje específico (o el por defecto)
+                    Swal.fire({
+                        title: '¡Error!',
+                        text: mensajeDeErrorParaMostrar, // Aquí se mostrará el mensaje específico del controlador (o el fallback)
+                        icon: 'error', // Icono de error
+                        confirmButtonText: 'Aceptar'
+                    });
+                }
+
+            });
+        }
+    </script>
+}

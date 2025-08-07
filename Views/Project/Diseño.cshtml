@@ -1,0 +1,626 @@
+@model GoogleRuta.ViewModels.DiseñoViewModel
+@using System.Text.Json
+
+@{
+    ViewData["Title"] = "Diseñar Proyecto";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    //var initialLat = ViewData["InitialLat"] as double?;
+    //var initialLng = ViewData["InitialLng"] as double?;
+
+
+    var processedCoordsJson = TempData["ProcessedCoordinatess"] as string ?? "[]";
+    var projectId = TempData["ProjectId"] as int?;
+    var nameTemp = TempData["Name"] as string;
+
+    //color desde el backend
+    //tomo cada objeto de la lista , extraigo solo el codigo del color
+    //creo un list de string osea un array de string para pasarlo a javascrip
+    var colorList = (Model.ColorTraces != null && Model.ColorTraces.Any())
+    ? Model.ColorTraces.Select(c => c.Color).ToList()
+    : new List<string> { "#FF0000", "#00FF00", "#0000FF" };
+}
+
+@* Este es el contenido de tu vista que se renderizará dentro de _Layout.cshtml *@
+
+<div class="container-fluid" style="height: calc(100vh - 100px);"> @* Ajusta la altura del contenedor principal de tu vista *@
+    <h2 class="mt-3">Dashboard</h2>
+
+    <div id="map" style="height: 100%; width: 100%;"></div>
+    <button id="saveCoordsBtn" class="btn btn-primary mt-3">Guardar</button>
+
+</div>
+
+
+@section Scripts {
+    <style>
+        /* Estilos para el botón activo. Da feedback visual al usuario. */
+        .custom-element-button.active {
+            background-color: #e0e0e0 !important;
+            border: 1px solid #3385ff !important;
+        }
+
+        /* NUEVOS ESTILOS PARA LOS BOTONES DE COLORES */
+        .custom-color-button.active {
+            border: 2px solid #3385ff !important;
+            box-shadow: 0 0 3px rgba(51, 133, 255, 0.5) !important;
+        }
+
+        .custom-color-button:hover {
+            transform: scale(1.1);
+            transition: transform 0.1s ease;
+        }
+    </style>
+
+    <script>
+        var nameJs = '@(nameTemp ?? "")';
+        console.log("ver name ", nameJs);
+
+        const currentProjectId = @(projectId.HasValue? projectId.Value.ToString() : "null");
+        console.log("ID del proyecto disponible en JS:", currentProjectId);
+
+        @{
+                // Usamos LINQ para crear una nueva lista de objetos anónimos.
+                // Para cada elemento, copiamos sus propiedades y transformamos 'iconUrl'
+                // usando Url.Content() para generar una ruta válida para el navegador.
+                var elementTypesForJs = Model.ElementTypes.Select(e => new
+                {
+                    id = e.Id,
+                                                                                                                        name = e.Name,
+                                                                                                                        iconUrl = Url.Content(e.IconoUrl) // <-- ¡Esta es la corrección!
+                });
+            }
+
+                                        // Ahora serializamos la nueva lista con las URLs corregidas.
+                                        const elementTypes = @Html.Raw(Json.Serialize(elementTypesForJs));
+        console.log("Tipos de Elementos (con URLs corregidas):", elementTypes);
+
+        //traer la lista de colores desde el contrrolador
+        const availableColors =@Html.Raw(JsonSerializer.Serialize(colorList));
+        console.log("🎨 Colores disponibles:", availableColors);
+
+        // El problema: existingElements es un STRING, no un Array.
+        // La Solución: Convertimos (parseamos) el string a un Array de JavaScript real.
+        // ======================================================================
+        const existingElements = @Html.Raw(TempData["ExistingPlacedElements"] as string ?? "[]");
+        console.log("ver elementos llegando a la vista diseño (YA PARSEADO):", existingElements);
+                        @*const existingElementsJson = '@Html.Raw(TempData["ExistingPlacedElements"] as string ?? "[]")';
+        const existingElements = JSON.parse(existingElementsJson);
+        console.log("ver elementos llegando a la vista diseño (YA PARSEADO):", existingElements); *@
+
+            let currentPolygon = null;
+        let currentPolyLine = null;
+        let currentPolygonCoords = [];
+        let currentPolylineCoords = [];
+
+        // Aquí guardaremos todos los elementos (postes, cajas, etc.) que el usuario coloque.
+        let placedElements = [];
+        //Variable para gestionar el listener del mapa ---
+        let mapClickListener = null;
+        // Agregamos una variable para guardar el tipo de elemento activo
+        let activeElementType = null;
+
+        function initMap() {
+            let center;
+            // Procesar coordenadas de la base de datos con validación
+            const rawCoords = JSON.parse(@Html.Raw(JsonSerializer.Serialize(processedCoordsJson)));
+            const processedCoords = rawCoords.map(coord => ({
+                lat: parseFloat(coord.lat || coord.Lat || 0),
+                lng: parseFloat(coord.lng || coord.Lng || 0)
+            })).filter(coord =>
+                !isNaN(coord.lat) && !isNaN(coord.lng) &&
+                isFinite(coord.lat) && isFinite(coord.lng)
+            );
+
+            console.log("coordenadas procesadas", processedCoords)
+            console.log("ver lista pintar", processedCoords)
+
+            const mapCenterLat = parseFloat('@(Model.InitialLat.HasValue? Model.InitialLat.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) : "-13.44255087")');
+            const mapCenterLng = parseFloat('@(Model.InitialLng.HasValue? Model.InitialLng.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) : "-76.1470107")');
+
+            if (processedCoords.length > 0) {
+                center = { lat: processedCoords[0].lat, lng: processedCoords[0].lng };
+
+            }
+            else {
+                center = { lat: mapCenterLat, lng: mapCenterLng };
+            }
+
+            const map = new google.maps.Map(document.getElementById("map"), {
+                zoom: 12,
+                center: center,
+                mapTypeId: "terrain",
+                mapTypeControl: true,
+                streetViewControl: true,
+                fullscreenControl: true
+            });
+
+            if (processedCoords.length > 0) {
+                const path = processedCoords.map(p => ({ lat: p.lat, lng: p.lng }));
+
+                const polyline = new google.maps.Polyline({
+                    path: path,
+                    map: map,
+                    strokeColor: '#0000FF',
+                    strokeOpacity: 0.8,
+                    strokeWeight: 3,
+                    clickable: true,
+                    editable: true,
+                    zIndex: 1,
+                });
+
+                currentPolyLine = polyline;
+                setPolylineListeners(currentPolyLine);
+                updatePolylineCoords(currentPolyLine);
+            } else {
+                new google.maps.Marker({
+                    position: center,
+                    map: map,
+                    title: "Ubicación inicial"
+                });
+            }
+
+
+            //Dibujar los elementos(cajas,postes etc al cargar)
+            if (existingElements.length > 0) {
+                console.log(`Cargando ${existingElements.length} elementos existentes.`);
+
+                existingElements.forEach(element => {
+                    // Buscamos el tipo de elemento completo para obtener su URL de icono
+                    const elementType = elementTypes.find(t => t.id === element.ElementTypeId);
+                    if (elementType) {
+                        const location = { lat: element.Lat, lng: element.Lng };
+                        console.log("Encontrado tipo de elemento, dibujando marcador en:", location);
+                        // Reutilizamos la función que ya tienes para colocar marcadores
+                        placeMarker(location, elementType, map);
+                    }
+                });
+
+            }
+
+            // --- FUNCIÓN DE LISTENERS MEJORADA CON BORRADO MANUAL ---
+            function setPolylineListeners(polyline) {
+                // Listeners para arrastrar y añadir puntos (estos suelen funcionar bien)
+                google.maps.event.addListener(polyline.getPath(), 'set_at', () => updatePolylineCoords(polyline));
+                google.maps.event.addListener(polyline.getPath(), 'insert_at', () => updatePolylineCoords(polyline));
+
+                // Listener para el evento de borrado que ya tenías (lo dejamos como respaldo)
+                google.maps.event.addListener(polyline.getPath(), 'remove_at', () => updatePolylineCoords(polyline));
+
+                // *** LISTENER CLAVE PARA EL BORRADO MANUAL POR CLIC DERECHO ***
+                google.maps.event.addListener(polyline, 'rightclick', function (event) {
+                    // El evento 'rightclick' nos da información sobre dónde se hizo clic.
+                    // 'event.vertex' nos dirá el índice del vértice si se hizo clic en uno.
+                    if (event.vertex !== undefined && event.vertex !== null) {
+                        console.log(`Clic derecho detectado en el vértice: ${event.vertex}`);
+
+                        // Obtenemos el path (la ruta) de la polilínea.
+                        const path = polyline.getPath();
+
+                        // Eliminamos el vértice en ese índice.
+                        path.removeAt(event.vertex);
+
+                        // Nota: No es necesario llamar a updatePolylineCoords aquí, porque
+                        // removeAt dispara automáticamente el evento 'remove_at' que ya estamos escuchando.
+                    }
+                });
+            }
+
+            function setPolygonListeners(polygon) {
+                google.maps.event.addListener(polygon.getPath(), 'set_at', () => updatePolygonCoords(polygon));
+                google.maps.event.addListener(polygon.getPath(), 'insert_at', () => updatePolygonCoords(polygon));
+                google.maps.event.addListener(polygon.getPath(), 'remove_at', () => updatePolygonCoords(polygon));
+            }
+
+            const drawingManager = new google.maps.drawing.DrawingManager({
+                drawingMode: google.maps.drawing.OverlayType.POLYLINE,
+                drawingControl: true,
+                drawingControlOptions: {
+                    position: google.maps.ControlPosition.TOP_CENTER,
+                    drawingModes: [
+                        google.maps.drawing.OverlayType.POLYGON,
+                        google.maps.drawing.OverlayType.POLYLINE,
+                        google.maps.drawing.OverlayType.MARKER
+                    ],
+                },
+                polygonOptions: {
+                    fillColor: '#AA0000', fillOpacity: 0.3, strokeWeight: 2,
+                    strokeColor: '#FF0000', clickable: true, editable: true, zIndex: 1,
+                },
+                polylineOptions: {
+                    strokeColor: '#0000FF', strokeOpacity: 0.8, strokeWeight: 3,
+                    clickable: true, editable: true, zIndex: 1,
+                }
+            });
+
+            drawingManager.setMap(map);
+
+            google.maps.event.addListener(drawingManager, 'overlaycomplete', function (event) {
+                // Si se completa un dibujo de Google, nos aseguramos de que ninguno de nuestros botones esté activo.
+                deactivateCustomButtons();
+                if (event.type == google.maps.drawing.OverlayType.POLYGON) {
+                    if (currentPolyLine) {
+                        google.maps.event.clearInstanceListeners(currentPolyLine.getPath());
+                        google.maps.event.clearInstanceListeners(currentPolyLine);
+                        currentPolyLine.setMap(null);
+                        currentPolyLine = null;
+                        currentPolylineCoords = [];
+                    }
+                    if (currentPolygon) {
+                        google.maps.event.clearInstanceListeners(currentPolygon.getPath());
+                        google.maps.event.clearInstanceListeners(currentPolygon);
+                        currentPolygon.setMap(null);
+                    }
+                    currentPolygon = event.overlay;
+                    setPolygonListeners(currentPolygon);
+                    updatePolygonCoords(currentPolygon);
+                    drawingManager.setDrawingMode(null);
+
+                } else if (event.type == google.maps.drawing.OverlayType.POLYLINE) {
+
+                    if (currentPolygon) {
+                        google.maps.event.clearInstanceListeners(currentPolygon.getPath());
+                        google.maps.event.clearInstanceListeners(currentPolygon);
+                        currentPolygon.setMap(null);
+                        currentPolygon = null;
+                        currentPolygonCoords = [];
+                    }
+
+                    const newPolylineSegment = event.overlay;
+                    let combinedPath = [];
+
+                    if (currentPolyLine) {
+                        google.maps.event.clearInstanceListeners(currentPolyLine.getPath());
+                        google.maps.event.clearInstanceListeners(currentPolyLine);
+                        combinedPath = currentPolyLine.getPath().getArray();
+                        currentPolyLine.setMap(null);
+                    }
+
+                    combinedPath = combinedPath.concat(newPolylineSegment.getPath().getArray());
+                    newPolylineSegment.setMap(null);
+
+                    const newCombinedPolyline = new google.maps.Polyline({
+                        path: combinedPath, map: map,
+                        strokeColor: '#0000FF', strokeOpacity: 0.8, strokeWeight: 3,
+                        clickable: true, editable: true, zIndex: 1,
+                    });
+
+                    currentPolyLine = newCombinedPolyline;
+                    setPolylineListeners(currentPolyLine);
+                    updatePolylineCoords(currentPolyLine);
+                    drawingManager.setDrawingMode(null);
+                }
+            });
+
+            function updatePolygonCoords(polygon) {
+                const path = polygon.getPath();
+                currentPolygonCoords = [];
+                path.getArray().forEach(function (latLng) {
+                    currentPolygonCoords.push({ lat: latLng.lat(), lng: latLng.lng() });
+                });
+                console.log("Coordenadas del polígono actualizadas:", currentPolygonCoords);
+            }
+
+            function updatePolylineCoords(polyline) {
+                const path = polyline.getPath();
+                currentPolylineCoords = [];
+                path.getArray().forEach(function (latLng) {
+                    currentPolylineCoords.push({ lat: latLng.lat(), lng: latLng.lng() });
+                });
+                console.log("Coordenadas de la polilínea actualizadas:", currentPolylineCoords);
+            }
+
+            //NUEVO CÓDIGO: AÑADIR CONTROLES PERSONALIZADOS PARA ELEMENTOS ---
+            // Le pasamos el 'drawingManager' para poder controlarlo
+            createCustomElementControls(map, drawingManager);
+            createCustomColorControls(map);
+
+        }
+
+
+        let selectedColor = null;
+
+        function createCustomColorControls(map) {
+            // 1. Crea un contenedor para los botones de colores
+            const colorToolbar = document.createElement('div');
+
+            colorToolbar.style.margin = '8px';
+            colorToolbar.style.display = 'flex';
+            colorToolbar.style.gap = '2px';
+            colorToolbar.style.backgroundColor = 'white';
+            colorToolbar.style.padding = '3px';
+            colorToolbar.style.borderRadius = '2px';
+            colorToolbar.style.boxShadow = 'rgba(0, 0, 0, 0.3) 0px 1px 4px -1px';
+            colorToolbar.id = 'customColorToolbar';
+
+            // 2. Itera sobre los colores disponibles para crear un botón para cada uno
+            availableColors.forEach(color => {
+                const button = document.createElement('button');
+                button.className = 'custom-color-button'; // Clase para aplicar estilos
+
+                button.style.backgroundColor = color; // El color de fondo es el color real
+                button.style.border = '2px solid #ccc';
+                button.style.width = '24px';
+                button.style.height = '24px';
+                button.style.borderRadius = '4px';
+                button.style.cursor = 'pointer';
+                button.style.margin = '1px';
+                button.title = `Color: ${color}`; // Tooltip con el código del color
+
+                // Efecto hover
+                button.addEventListener('mouseenter', () => {
+                    if (!button.classList.contains('active')) {
+                        button.style.border = '2px solid #666';
+                    }
+                });
+
+                button.addEventListener('mouseleave', () => {
+                    if (!button.classList.contains('active')) {
+                        button.style.border = '2px solid #ccc';
+                    }
+                });
+
+                // Evento de clic para seleccionar el color
+                button.addEventListener('click', () => {
+                    // 1. Desactivamos todos los otros botones de color
+                    deactivateColorButtons();
+
+                    // 2. Activamos ESTE botón
+                    button.classList.add('active');
+                    button.style.border = '2px solid #3385ff';
+                    button.style.boxShadow = '0 0 3px rgba(51, 133, 255, 0.5)';
+
+                    // 3. Guardamos el color seleccionado
+                    selectedColor = color;
+
+                    console.log("🎨 Color seleccionado:", color);
+
+                    // 4. Aquí puedes agregar lógica adicional, como cambiar el color de las líneas futuras
+                    // Por ejemplo, si tienes un drawingManager:
+                    // drawingManager.setOptions({
+                    //     polylineOptions: {
+                    //         ...drawingManager.get('polylineOptions'),
+                    //         strokeColor: color
+                    //     }
+                    // });
+                });
+
+                colorToolbar.appendChild(button);
+            });
+
+            // 3. Añade la barra de colores al mapa (puedes cambiar la posición según prefieras)
+            map.controls[google.maps.ControlPosition.TOP_RIGHT].push(colorToolbar);
+        }
+
+
+
+        //FUNCIÓN ACTUALIZADA: Crea los botones y gestiona el estado activo.
+
+        function createCustomElementControls(map, drawingManager) {
+            // 1. Crea un contenedor para nuestros botones.
+            const toolbar = document.createElement('div');
+
+            toolbar.style.margin = '8px'; // Espacio respecto a los controles de Google
+            toolbar.style.display = 'flex';
+            toolbar.style.gap = '2px';
+            toolbar.style.backgroundColor = 'white';
+            toolbar.style.padding = '3px';
+            toolbar.style.borderRadius = '2px';
+            toolbar.style.boxShadow = 'rgba(0, 0, 0, 0.3) 0px 1px 4px -1px';
+            toolbar.id = 'customToolbar'; // Le damos un ID para encontrarlo después
+
+            // 2. Itera sobre tus tipos de elementos para crear un botón para cada uno.
+            elementTypes.forEach(elementType => {
+                const button = document.createElement('button');
+                button.className = 'custom-element-button'; // Clase para aplicar estilos
+
+                button.style.backgroundColor = 'white';
+                button.style.border = 'none';
+                button.style.padding = '5px';
+                button.style.cursor = 'pointer';
+                button.title = elementType.name;
+                button.innerHTML = `<img src="${elementType.iconUrl}" style="width:18px; height:18px;">`;
+
+                button.addEventListener('click', () => {
+                    // 1. Desactivamos cualquier herramienta de Google y otros botones personalizados
+                    deactivateCustomButtons();
+                    drawingManager.setDrawingMode(null);
+
+                    // 2. Activamos ESTE botón
+                    button.classList.add('active');
+                    map.setOptions({ draggableCursor: 'crosshair' });
+
+                    // 3. Establecemos el tipo de elemento activo
+                    activeElementType = elementType;
+
+                    // 4. Agregamos el listener de clic en el mapa para colocar elementos,
+                    // pero esta vez es un addListener normal, no once.
+                    // ¡Esto nos permite colocar múltiples elementos!
+                    if (mapClickListener) {
+                        google.maps.event.removeListener(mapClickListener);
+                    }
+                    mapClickListener = google.maps.event.addListener(map, 'click', (event) => {
+                        placeMarker(event.latLng, activeElementType, map);
+                    });
+
+                    console.log(`Modo de colocación activado para: ${elementType.name}`);
+                });
+
+                toolbar.appendChild(button);
+            });
+
+            map.controls[google.maps.ControlPosition.TOP_CENTER].push(toolbar);
+        }
+
+        function deactivateCustomButtons() {
+            document.querySelectorAll('#customToolbar .custom-element-button').forEach(b => {
+                b.classList.remove('active');
+            });
+            if (mapClickListener) {
+                google.maps.event.removeListener(mapClickListener);
+                mapClickListener = null;
+            }
+            // Asumiendo que 'map' es accesible globalmente o pasado como parámetro
+            const map = document.getElementById('map').__gmap_instance__;
+            if (map) map.setOptions({ draggableCursor: '' });
+        }
+
+        function placeMarker(location, elementType, map) {
+            // 1. Extrae las coordenadas de forma segura (esto ya lo tenías bien)
+            const latitude = typeof location.lat === 'function' ? location.lat() : location.lat;
+            const longitude = typeof location.lng === 'function' ? location.lng() : location.lng;
+
+            // 2. Crea el objeto de datos CON un ID único para la sesión.
+            // Usamos Date.now() y un número aleatorio para asegurar que sea único.
+            const elementData = {
+                internalId: Date.now() + Math.random(), // ID único para vincular marcador y datos
+                lat: latitude,
+                lng: longitude,
+                elementTypeId: elementType.id
+            };
+
+            // 3. Crea el marcador visual
+            const marker = new google.maps.Marker({
+                position: { lat: latitude, lng: longitude }, // Es mejor usar el objeto lat/lng aquí
+                map: map,
+                icon: {
+                    url: elementType.iconUrl,
+                    scaledSize: new google.maps.Size(32, 32),
+                    origin: new google.maps.Point(0, 0),
+                    anchor: new google.maps.Point(16, 16)
+                }
+            });
+
+            // 4. Vincula el marcador con los datos guardando el ID único en el propio marcador.
+            marker.internalId = elementData.internalId;
+
+            // 5. ¡LA CLAVE! Añade el listener de click derecho para la eliminación.
+            google.maps.event.addListener(marker, 'rightclick', function () {
+                // 'this' dentro de este listener se refiere al marcador que fue clickeado.
+
+                // a) Elimina el marcador visual del mapa.
+                this.setMap(null);
+
+                // b) Encuentra y elimina el objeto de datos del array 'placedElements'.
+                // Usamos .filter() para crear un nuevo array que excluya el elemento con nuestro ID.
+                placedElements = placedElements.filter(el => el.internalId !== this.internalId);
+
+                console.log(`Elemento con ID ${this.internalId} eliminado.`);
+                console.log("Estado actual de 'placedElements':", placedElements);
+            });
+
+
+            // 6. Añade el elemento con su nuevo ID al array que se enviará al guardar.
+            placedElements.push(elementData);
+
+            console.log("Elemento colocado/cargado:", elementData);
+            console.log("Todos los elementos:", placedElements);
+
+            @* // 1. Dibuja el marcador visual en el mapa (esta parte está bien)
+            // Google Maps es inteligente y la propiedad "position" acepta ambos tipos de objeto.
+            const marker = new google.maps.Marker({
+                position: location,
+                map: map,
+                icon: {
+                    url: elementType.iconUrl, // La URL de la imagen
+                    scaledSize: new google.maps.Size(32, 32), // ¡La clave! El nuevo tamaño en píxeles (ancho, alto)
+                    origin: new google.maps.Point(0, 0),      // Punto de origen de la imagen
+                    anchor: new google.maps.Point(16, 16)     // Dónde se ancla el icono (el centro en este caso)
+                }
+                //icon: elementType.iconUrl
+            });
+
+            // 2. Extrae las coordenadas de forma segura, sin importar el tipo de objeto 'location'
+             const latitude = typeof location.lat === 'function' ? location.lat() : location.lat;
+             const longitude = typeof location.lng === 'function' ? location.lng() : location.lng;
+
+            // 3. Crea el objeto de datos con las coordenadas numéricas correctas
+            const elementData = {
+                lat: latitude,
+                lng: longitude,
+                elementTypeId: elementType.id
+            };
+
+            // 4. Añade el elemento al array que se enviará al guardar
+            placedElements.push(elementData);
+
+            console.log("Elemento colocado:", elementData);
+            console.log("Todos los elementos:", placedElements);*@
+                        }
+
+        document.getElementById('saveCoordsBtn').addEventListener('click', function () {
+            let dataToSend = null; // Inicializamos a null
+
+            // Verificamos cuál arreglo de coordenadas tiene datos
+            if (currentPolygonCoords.length > 0) {
+                dataToSend = {
+                    Name: nameJs,
+                    Id: currentProjectId,
+                    Type: 'polygon', // Aún enviamos el tipo para que el controlador sepa cómo procesarlo
+                    Coordinates: currentPolygonCoords.map(c => [c.lat, c.lng]),
+                    PlacedElements: placedElements
+                };
+                console.log("Enviando coordenadas de polígono:", dataToSend);
+            } else if (currentPolylineCoords.length > 0) {
+                dataToSend = {
+                    Name: nameJs,
+                    Id: currentProjectId,
+                    Type: 'polyline', // Aún enviamos el tipo
+                    Coordinates: currentPolylineCoords.map(c => [c.lat, c.lng]),
+                    PlacedElements: placedElements
+                };
+                console.log("Enviando coordenadas de polilínea:", dataToSend);
+            } else {
+                alert("Por favor, dibuja un polígono o una polilínea antes de guardar.");
+                return; // Detiene la función si no hay nada dibujado
+            }
+
+            // Si dataToSend sigue siendo null, significa que no se dibujó nada válido.
+            if (dataToSend === null) {
+                alert("No hay una forma válida dibujada para guardar.");
+                return;
+            }
+
+            console.log("📤 Datos que se van a enviar:", dataToSend);
+            console.log("📤 JSON a enviar:", JSON.stringify(dataToSend));
+
+            // Envía los datos usando la API Fetch
+            fetch('/Project/Coordinate', { // ¡Importante! Reemplaza con tu controlador y acción reales.
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    // 'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value // Si lo usas
+                },
+                body: JSON.stringify(dataToSend)
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Error HTTP! estado: ${response.status}`);
+                    }
+                    return response.json(); // Esperamos el JSON { redirectToUrl: '...' }
+                })
+                .then(data => {
+                    // ¡ÉXITO! Ahora redirigimos el navegador a la URL que nos dio el servidor.
+                    console.log('Datos guardados. Redirigiendo a:', data.redirectToUrl);
+                    window.location.href = data.redirectToUrl;
+                })
+                .catch((error) => {
+                    console.error('Error:', error);
+                    alert('Hubo un error al guardar las coordenadas: ' + error.message);
+                });
+
+        });
+
+
+
+
+        // Esta línea es crucial para que Google Maps sepa qué función llamar una vez que el API esté cargada
+        window.initMap = initMap;
+    </script>
+
+    @* Carga la API de Google Maps. ¡Asegúrate de que 'libraries=drawing' esté presente! *
+   Reemplaza 'AIzaSyDp_qGGShO7CvdR5zFiH7KT4Mk3eGZO6VY' con tu CLAVE DE API real. *@
+    <script async defer
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDp_qGGShO7CvdR5zFiH7KT4Mk3eGZO6VY&callback=initMap&v=weekly&solution_channel=GMP_CCS_simplepolygon_v2&libraries=drawing">
+        </script>
+}
