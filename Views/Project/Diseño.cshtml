@@ -21,6 +21,7 @@
     : new List<string> { "#FF0000", "#00FF00", "#0000FF" };
 }
 
+
 @* Este es el contenido de tu vista que se renderizará dentro de _Layout.cshtml *@
 
 <div class="container-fluid" style="height: calc(100vh - 100px);"> @* Ajusta la altura del contenedor principal de tu vista *@
@@ -30,6 +31,92 @@
     <button id="saveCoordsBtn" class="btn btn-primary mt-3">Guardar</button>
 
 </div>
+
+<div class="modal fade" id="elementModal" tabindex="-1" aria-labelledby="elementModalLabel" aria-hidden="true">
+    <!-- 1. Modal extra grande con la clase "modal-xl" -->
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="elementModalLabel">Lienzo de Diseño Profesional</h5>
+
+                <!-- Controles de dibujo se mantienen en la cabecera -->
+                <div class="ms-auto d-flex align-items-center">
+                    <label for="colorPicker" class="form-label mb-0 me-2 small">Color:</label>
+                    <input type="color" class="form-control form-control-sm me-3" id="colorPicker" value="#000000"
+                        style="width: 50px;">
+
+                    <label for="brushSize" class="form-label mb-0 me-2 small">Grosor:</label>
+                    <input type="range" class="form-range me-3" id="brushSize" min="1" max="10" value="2"
+                        style="width: 100px;">
+
+                    <button id="clearCanvasBtn" class="btn btn-sm btn-outline-danger">Limpiar Todo</button>
+                </div>
+
+                <!-- 4. Botón de cierre estándar en la cabecera -->
+                <button type="button" class="btn-close ms-3" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <!-- 3. Cuerpo del modal con fondo gris claro para resaltar el lienzo -->
+            <div class="modal-body p-2" style="background-color: #f8f9fa; text-align: center;">
+
+                <!-- Barra de herramientas (sin cambios) -->
+                <div id="toolbar"
+                    class="mb-2 p-2 rounded d-flex justify-content-center align-items-center bg-light border-bottom">
+                    <div class="me-3 border-end pe-3">
+                        <span class="me-2 small">MODO:</span>
+                        <button id="selectModeBtn" class="btn btn-sm btn-primary"
+                            title="Modo Selección (Mover, Seleccionar, Borrar)">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                                class="bi bi-cursor-fill" viewBox="0 0 16 16">
+                                <path
+                                    d="M14.082 2.182a.5.5 0 0 1 .103.557L8.528 15.467a.5.5 0 0 1-.917-.007L5.57 10.694.803 8.652a.5.5 0 0 1-.006-.916l12.728-5.657a.5.5 0 0 1 .556.103z" />
+                            </svg>
+                        </button>
+                        <button id="drawModeBtn" class="btn btn-sm btn-outline-secondary"
+                            title="Modo Conector (Dibujar Líneas)">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                                class="bi bi-slash-lg" viewBox="0 0 16 16">
+                                <path fill-rule="evenodd"
+                                    d="M13.854 2.146a.5.5 0 0 1 0 .708l-11 11a.5.5 0 0 1-.708-.708l11-11a.5.5 0 0 1 .708 0z" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div id="componentGeneratorControls" class="d-flex align-items-center">
+                        <div class="me-3"><span class="me-2 small">CABLE:</span>
+                            <button class="btn btn-sm btn-outline-primary" data-strands="5">1x5</button>
+                            <button class="btn btn-sm btn-outline-primary" data-strands="8">1x8</button>
+                            <button class="btn btn-sm btn-outline-primary" data-strands="12">1x12</button>
+                        </div>
+                        <div><span class="me-2 small">SPLITTER:</span>
+                            <button class="btn btn-sm btn-outline-success" data-splitter-out="4">1x4</button>
+                            <button class="btn btn-sm btn-outline-success" data-splitter-out="8">1x8</button>
+                            <button class="btn btn-sm btn-outline-success" data-splitter-out="16">1x16</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Contenedor del lienzo con fondo de cuadrícula -->
+                <div id="konva-container" style="
+                    border: 1px solid #ccc;
+                    display: inline-block;
+                    background-color: #ffffff;
+                    background-image:
+                        linear-gradient(#e0e0e0 1px, transparent 1px),
+                        linear-gradient(90deg, #e0e0e0 1px, transparent 1px);
+                    background-size: 20px 20px;">
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <!-- Se puede simplificar, ya que el cierre principal está en la cabecera -->
+                <button type="button" id="saveCanvasBtn" class="btn btn-primary">Guardar Diseño</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script src="https://unpkg.com/konva@9.3.0/konva.min.js"></script>
 
 
 @section Scripts {
@@ -50,9 +137,22 @@
             transform: scale(1.1);
             transition: transform 0.1s ease;
         }
+
+        .canvas-color-btn.active-canvas-color {
+            border: 2px solid #007bff !important;
+            box-shadow: 0 0 3px rgba(0, 123, 255, 0.5) !important;
+        }
+
+        .canvas-color-btn:hover {
+            transform: scale(1.05);
+            transition: transform 0.1s ease;
+        }
     </style>
 
     <script>
+        //variable para rastrear la polilínea seleccionada
+        let selectedPolyline = null;
+
         var nameJs = '@(nameTemp ?? "")';
         console.log("ver name ", nameJs);
 
@@ -66,25 +166,27 @@
                 var elementTypesForJs = Model.ElementTypes.Select(e => new
                 {
                     id = e.Id,
-                                                                                                                        name = e.Name,
-                                                                                                                        iconUrl = Url.Content(e.IconoUrl) // <-- ¡Esta es la corrección!
+                                                                                                                                                       name = e.Name,
+                                                                                                                                                       iconUrl = Url.Content(e.IconoUrl) // <-- ¡Esta es la corrección!
                 });
             }
 
-                                        // Ahora serializamos la nueva lista con las URLs corregidas.
-                                        const elementTypes = @Html.Raw(Json.Serialize(elementTypesForJs));
+                                                     // Ahora serializamos la nueva lista con las URLs corregidas.
+                                                     const elementTypes = @Html.Raw(Json.Serialize(elementTypesForJs));
         console.log("Tipos de Elementos (con URLs corregidas):", elementTypes);
 
         //traer la lista de colores desde el contrrolador
         const availableColors =@Html.Raw(JsonSerializer.Serialize(colorList));
         console.log("🎨 Colores disponibles:", availableColors);
+        const availableColorsComplete = @Html.Raw(JsonSerializer.Serialize(Model.ColorTraces ?? new List<ColorTraces>()));
+        console.log("🎨 Colores disponibles:", availableColorsComplete);
 
         // El problema: existingElements es un STRING, no un Array.
         // La Solución: Convertimos (parseamos) el string a un Array de JavaScript real.
         // ======================================================================
         const existingElements = @Html.Raw(TempData["ExistingPlacedElements"] as string ?? "[]");
         console.log("ver elementos llegando a la vista diseño (YA PARSEADO):", existingElements);
-                        @*const existingElementsJson = '@Html.Raw(TempData["ExistingPlacedElements"] as string ?? "[]")';
+                                                                                                                                                                                                                                                                            @*const existingElementsJson = '@Html.Raw(TempData["ExistingPlacedElements"] as string ?? "[]")';
         const existingElements = JSON.parse(existingElementsJson);
         console.log("ver elementos llegando a la vista diseño (YA PARSEADO):", existingElements); *@
 
@@ -99,6 +201,8 @@
         let mapClickListener = null;
         // Agregamos una variable para guardar el tipo de elemento activo
         let activeElementType = null;
+        //tomo los datos del elemento para enviarlo al controlador dibujo
+        let selectedMapElementData = null;
 
         function initMap() {
             let center;
@@ -151,6 +255,12 @@
 
                 currentPolyLine = polyline;
                 setPolylineListeners(currentPolyLine);
+                selectedPolyline = currentPolyLine;
+                currentPolyLine.setOptions({
+                    strokeWeight: 5,
+                    strokeOpacity: 1.0
+                });
+                console.log('Línea inicial auto-seleccionada');
                 updatePolylineCoords(currentPolyLine);
             } else {
                 new google.maps.Marker({
@@ -172,7 +282,7 @@
                         const location = { lat: element.Lat, lng: element.Lng };
                         console.log("Encontrado tipo de elemento, dibujando marcador en:", location);
                         // Reutilizamos la función que ya tienes para colocar marcadores
-                        placeMarker(location, elementType, map);
+                        placeMarker(location, elementType, map, element);
                     }
                 });
 
@@ -204,6 +314,29 @@
                         // removeAt dispara automáticamente el evento 'remove_at' que ya estamos escuchando.
                     }
                 });
+
+                // NUEVO: Listener para seleccionar la polilínea con clic izquierdo
+                google.maps.event.addListener(polyline, 'click', function () {
+                    // Resetear el estilo de la polilínea anteriormente seleccionada
+                    if (selectedPolyline && selectedPolyline !== polyline) {
+                        selectedPolyline.setOptions({
+                            strokeWeight: 3,
+                            strokeOpacity: 0.8
+                        });
+                    }
+
+                    // Marcar esta polilínea como seleccionada
+                    selectedPolyline = polyline;
+
+                    // Cambiar el estilo para indicar que está seleccionada
+                    polyline.setOptions({
+                        strokeWeight: 5,  // Más gruesa
+                        strokeOpacity: 1.0 // Más opaca
+                    });
+
+                    console.log('Polilínea seleccionada');
+                });
+
             }
 
             function setPolygonListeners(polygon) {
@@ -288,6 +421,13 @@
                     currentPolyLine = newCombinedPolyline;
                     setPolylineListeners(currentPolyLine);
                     updatePolylineCoords(currentPolyLine);
+                    // 
+                    selectedPolyline = newCombinedPolyline;
+                    newCombinedPolyline.setOptions({
+                        strokeWeight: 5,
+                        strokeOpacity: 1.0
+                    });
+                    console.log('Nueva línea combinada auto-seleccionada');
                     drawingManager.setDrawingMode(null);
                 }
             });
@@ -313,14 +453,15 @@
             //NUEVO CÓDIGO: AÑADIR CONTROLES PERSONALIZADOS PARA ELEMENTOS ---
             // Le pasamos el 'drawingManager' para poder controlarlo
             createCustomElementControls(map, drawingManager);
-            createCustomColorControls(map);
+            createCustomColorControls(map, drawingManager);
 
         }
 
-
+        //variable selectedColor asignado a null
         let selectedColor = null;
 
-        function createCustomColorControls(map) {
+
+        function createCustomColorControls(map, drawingManager) {
             // 1. Crea un contenedor para los botones de colores
             const colorToolbar = document.createElement('div');
 
@@ -334,18 +475,18 @@
             colorToolbar.id = 'customColorToolbar';
 
             // 2. Itera sobre los colores disponibles para crear un botón para cada uno
-            availableColors.forEach(color => {
+            availableColorsComplete.forEach(colorObject => {
                 const button = document.createElement('button');
                 button.className = 'custom-color-button'; // Clase para aplicar estilos
 
-                button.style.backgroundColor = color; // El color de fondo es el color real
+                button.style.backgroundColor = colorObject.Color; // El color de fondo es el color real
                 button.style.border = '2px solid #ccc';
                 button.style.width = '24px';
                 button.style.height = '24px';
                 button.style.borderRadius = '4px';
                 button.style.cursor = 'pointer';
                 button.style.margin = '1px';
-                button.title = `Color: ${color}`; // Tooltip con el código del color
+                button.title = `Nombre: ${colorObject.name} - Color: ${colorObject.Color}`; // Mostramos más información en el tooltip (título)
 
                 // Efecto hover
                 button.addEventListener('mouseenter', () => {
@@ -362,6 +503,11 @@
 
                 // Evento de clic para seleccionar el color
                 button.addEventListener('click', () => {
+                    // Verificar si hay una polilínea seleccionada
+                    if (!selectedPolyline) {
+                        alert('Por favor, selecciona una línea primero haciendo clic en ella');
+                        return;
+                    }
                     // 1. Desactivamos todos los otros botones de color
                     deactivateColorButtons();
 
@@ -370,10 +516,12 @@
                     button.style.border = '2px solid #3385ff';
                     button.style.boxShadow = '0 0 3px rgba(51, 133, 255, 0.5)';
 
-                    // 3. Guardamos el color seleccionado
-                    selectedColor = color;
+                    // 3. Guardamos el OBJETO COMPLETO del color seleccionado
+                    selectedColor = colorObject;
 
-                    console.log("🎨 Color seleccionado:", color);
+                    console.log("🎨 Color seleccionado:", selectedColor);
+                    //Solo cambiar el color de la polilínea SELECCIONADA
+                    selectedPolyline.setOptions({ strokeColor: selectedColor.Color });
 
                     // 4. Aquí puedes agregar lógica adicional, como cambiar el color de las líneas futuras
                     // Por ejemplo, si tienes un drawingManager:
@@ -383,6 +531,13 @@
                     //         strokeColor: color
                     //     }
                     // });
+                    //NUEVA FUNCIONALIDAD: Cambiamos el color de las futuras polilíneas
+                    drawingManager.setOptions({
+                        polylineOptions: {
+                            strokeColor: selectedColor.Color // Usamos la propiedad .Color
+                        }
+                    });
+
                 });
 
                 colorToolbar.appendChild(button);
@@ -390,6 +545,21 @@
 
             // 3. Añade la barra de colores al mapa (puedes cambiar la posición según prefieras)
             map.controls[google.maps.ControlPosition.TOP_RIGHT].push(colorToolbar);
+        }
+        // Función para desactivar todos los botones de color
+        function deactivateColorButtons() {
+            document.querySelectorAll('#customColorToolbar .custom-color-button').forEach(button => {
+                button.classList.remove('active');
+                button.style.border = '2px solid #ccc';
+                button.style.boxShadow = 'none';
+            });
+        }
+
+        // Función mejorada para obtener el color seleccionado (ahora devuelve solo el string del color)
+        function getSelectedColor() {
+            // Si un objeto de color está seleccionado, devuelve su propiedad .Color.
+            // Si no, devuelve el primer color del array de strings como predeterminado.
+            return selectedColor ? selectedColor.Color : availableColors[0];
         }
 
 
@@ -465,7 +635,7 @@
             if (map) map.setOptions({ draggableCursor: '' });
         }
 
-        function placeMarker(location, elementType, map) {
+        function placeMarker(location, elementType, map, element) {
             // 1. Extrae las coordenadas de forma segura (esto ya lo tenías bien)
             const latitude = typeof location.lat === 'function' ? location.lat() : location.lat;
             const longitude = typeof location.lng === 'function' ? location.lng() : location.lng;
@@ -473,6 +643,8 @@
             // 2. Crea el objeto de datos CON un ID único para la sesión.
             // Usamos Date.now() y un número aleatorio para asegurar que sea único.
             const elementData = {
+                databaseId: element ? element.Id : null,
+                DrawingId: element ? element.DrawingId : null,
                 internalId: Date.now() + Math.random(), // ID único para vincular marcador y datos
                 lat: latitude,
                 lng: longitude,
@@ -507,6 +679,50 @@
 
                 console.log(`Elemento con ID ${this.internalId} eliminado.`);
                 console.log("Estado actual de 'placedElements':", placedElements);
+            });
+
+
+            google.maps.event.addListener(marker, 'click', function () {
+                // 1. Obtenemos los datos del elemento seleccionado
+                selectedMapElementData = placedElements.find(el => el.internalId === this.internalId);
+                console.log("Elemento seleccionado:", selectedMapElementData);
+
+                // 2. Antes de mostrar el modal, limpiamos el lienzo anterior.
+                // Esta función la crearemos en el script de dibujo.
+                //limpiarLienzoKonva();
+                window.limpiarLienzoKonvaGlobal();
+
+                // 3. Verificamos si este elemento tiene un dibujo guardado
+                // Nota: El 'drawingId' debe llegar desde tu 'PlacedElements' en el ViewModel
+                if (selectedMapElementData && selectedMapElementData.DrawingId) {
+                    console.log(`Este elemento tiene un dibujo asociado. ID: ${selectedMapElementData.DrawingId}. Pidiendo datos...`);
+
+                    // 4. Hacemos la llamada AJAX para obtener los datos del dibujo
+                    $.ajax({
+                        url: `/Project/GetDrawing/${selectedMapElementData.DrawingId}`, // Usamos la nueva ruta
+                        type: 'GET',
+                        success: function (drawingData) {
+                            console.log("Datos del dibujo recibidos:", drawingData);
+                            // Llamamos a la función que dibujará todo en el lienzo.
+                            // Esta función la crearemos en el script de dibujo.
+                            //dibujarDesdeDatos(drawingData);
+                            window.dibujarDesdeDatosGlobal(drawingData);
+                        },
+                        error: function (xhr) {
+                            console.error("Error al cargar los datos del dibujo:", xhr.responseText);
+                            alert("No se pudieron cargar los datos del dibujo guardado.");
+                        }
+                    });
+                }
+
+                // 5. Guardamos los datos en el modal y lo mostramos (esto no cambia)
+                const elementModal = document.getElementById('elementModal');
+                if (selectedMapElementData) {
+                    elementModal.dataset.elementProjectId = selectedMapElementData.databaseId;
+                    // ... guardar los otros datos
+                }
+                var myModal = new bootstrap.Modal(elementModal);
+                myModal.show();
             });
 
 
@@ -546,7 +762,7 @@
 
             console.log("Elemento colocado:", elementData);
             console.log("Todos los elementos:", placedElements);*@
-                        }
+                                                                                                                                                                                                                                                                            }
 
         document.getElementById('saveCoordsBtn').addEventListener('click', function () {
             let dataToSend = null; // Inicializamos a null
@@ -616,6 +832,966 @@
 
         // Esta línea es crucial para que Google Maps sepa qué función llamar una vez que el API esté cargada
         window.initMap = initMap;
+
+
+
+        // Paletas de colores para los cables. Definidas aquí para mayor claridad y facilidad de modificación.
+        const CABLE_COLOR_PALETTES = {
+            // Colores específicos para el cable de 5 hilos, como solicitaste.
+            5: ['#FFEB3B', '#2196F3', '#000000', '#F44336', '#4CAF50'], // Amarillo, Azul, Negro, Rojo, Verde
+
+            // Código de colores estándar TIA-598-C para 12 fibras. Se usará para cables de 8, 12 y otros tamaños.
+            default: [
+                '#007bff', // 1. Azul
+                '#fd7e14', // 2. Naranja
+                '#28a745', // 3. Verde
+                '#a0522d', // 4. Marrón
+                '#6c757d', // 5. Gris (Slate)
+                '#ffffff', // 6. Blanco
+                '#dc3545', // 7. Rojo
+                '#000000', // 8. Negro
+                '#ffc107', // 9. Amarillo
+                '#8a2be2', // 10. Violeta
+                '#e83e8c', // 11. Rosa
+                '#17a2b8'  // 12. Aguamarina
+            ]
+        };
+
+        // =================================================================================
+        // =========== INICIO DE LA LÓGICA DE KONVA.JS (CON CONECTORES ORTOGONALES) =========
+        // =================================================================================
+        let mainLayer;
+        document.addEventListener('DOMContentLoaded', function () {
+
+            // === MODELO DE DATOS: Tu "fuente de verdad" ===
+            // Estos arrays guardarán la información de tus nodos y conexiones
+            // y se actualizarán a medida que el usuario dibuja.
+            const state = {
+                nodos: [],
+                conexiones: [],
+            };
+
+            // --- 1. CONFIGURACIÓN INICIAL ---
+            const stage = new Konva.Stage({ container: 'konva-container', width: 750, height: 500 });
+            mainLayer = new Konva.Layer();
+            //const mainLayer = new Konva.Layer();
+            stage.add(mainLayer);
+
+            const colorPicker = document.getElementById('colorPicker');
+            const brushSize = document.getElementById('brushSize');
+            const clearCanvasBtn = document.getElementById('clearCanvasBtn');
+            const saveCanvasBtn = document.getElementById('saveCanvasBtn');
+            const componentControls = document.getElementById('componentGeneratorControls');
+            const selectModeBtn = document.getElementById('selectModeBtn');
+            const drawModeBtn = document.getElementById('drawModeBtn');
+
+            let currentMode = 'select';
+            let templateCableGroup = null;
+
+            let selectedCanvasColor = '#000000'; // Color por defecto para las líneas
+
+            const transformer = new Konva.Transformer({
+                borderStroke: 'blue', borderDash: [6, 2], rotateEnabled: true, anchorSize: 8, name: 'tool_transformer'
+            });
+            mainLayer.add(transformer);
+
+            const snapIndicator = new Konva.Circle({
+                radius: 7, stroke: 'red', strokeWidth: 2, visible: false, name: 'tool_snap_indicator'
+            });
+            mainLayer.add(snapIndicator);
+
+            // --- 2. GESTIÓN DE MODOS DE TRABAJO ---
+            function setMode(newMode) {
+                currentMode = newMode;
+                if (newMode === 'select') {
+                    selectModeBtn.classList.add('btn-primary');
+                    selectModeBtn.classList.remove('btn-outline-secondary');
+                    drawModeBtn.classList.add('btn-outline-secondary');
+                    drawModeBtn.classList.remove('btn-primary');
+                    stage.container().style.cursor = 'default';
+                    abortLineDrawing();
+                } else { // 'draw'
+                    drawModeBtn.classList.add('btn-primary');
+                    drawModeBtn.classList.remove('btn-outline-secondary');
+                    selectModeBtn.classList.add('btn-outline-secondary');
+                    selectModeBtn.classList.remove('btn-primary');
+                    stage.container().style.cursor = 'crosshair';
+                    transformer.nodes([]);
+                }
+            }
+
+            //createCanvasColorPalette
+
+            function createCanvasColorPalette() {
+                const toolbar = document.getElementById('toolbar');
+
+                // Crear contenedor para la paleta de colores
+                const colorSection = document.createElement('div');
+                colorSection.className = 'me-3 border-end pe-3';
+                colorSection.innerHTML = '<span class="me-2 small">COLOR LÍNEA:</span>';
+
+                // Simulación de los colores que podrías tener
+                const availableColorsComplete = [
+                    { name: 'Negro', Color: '#000000' },
+                    { name: 'Rojo', Color: '#FF0000' },
+                    { name: 'Azul', Color: '#0000FF' },
+                    { name: 'Verde', Color: '#008000' }
+                ];
+
+                // Agregar botones de color usando los mismos colores del mapa
+                availableColorsComplete.forEach((colorObject, index) => {
+                    const colorBtn = document.createElement('button');
+                    colorBtn.className = 'btn btn-sm me-1 canvas-color-btn';
+                    colorBtn.style.backgroundColor = colorObject.Color;
+                    colorBtn.style.width = '25px';
+                    colorBtn.style.height = '25px';
+                    colorBtn.style.border = '2px solid #ccc';
+                    colorBtn.style.borderRadius = '4px';
+                    colorBtn.title = `${colorObject.name} - ${colorObject.Color}`;
+                    colorBtn.dataset.color = colorObject.Color;
+
+                    // Marcar el primer color como activo por defecto
+                    if (index === 0) {
+                        colorBtn.classList.add('active-canvas-color');
+                        colorBtn.style.border = '2px solid #007bff';
+                        selectedCanvasColor = colorObject.Color;
+                    }
+
+                    colorBtn.addEventListener('click', () => {
+                        // Desactivar todos los botones
+                        document.querySelectorAll('.canvas-color-btn').forEach(btn => {
+                            btn.classList.remove('active-canvas-color');
+                            btn.style.border = '2px solid #ccc';
+                        });
+
+                        // Activar el botón seleccionado
+                        colorBtn.classList.add('active-canvas-color');
+                        colorBtn.style.border = '2px solid #007bff';
+                        selectedCanvasColor = colorObject.Color;
+
+                        // También actualizar el color picker tradicional para consistencia
+                        colorPicker.value = colorObject.Color;
+
+                        console.log(`🎨 Color seleccionado para líneas: ${colorObject.Color}`);
+                    });
+
+                    colorSection.appendChild(colorBtn);
+                });
+
+                // Insertar la sección de colores después de la sección de modos
+                const modeSection = toolbar.querySelector('.border-end');
+                modeSection.parentNode.insertBefore(colorSection, modeSection.nextSibling);
+            }
+
+            if (document.getElementById('toolbar')) {
+                createCanvasColorPalette();
+            }
+
+
+            selectModeBtn.addEventListener('click', () => setMode('select'));
+            drawModeBtn.addEventListener('click', () => setMode('draw'));
+
+            // --- 3. GESTIÓN DE EVENTOS DE RATÓN (CON LÓGICA ORTOGONAL) ---
+            let isDrawingLine = false, lineStartPoint = null, previewLine = null;
+            let startElement = null, endElement = null; // Para trackear las conexiones
+
+            stage.on('click tap', (e) => {
+                if (currentMode === 'select') {
+                    handleSelection(e);
+                } else {
+                    handleLineDrawing(e);
+                }
+            });
+
+            function handleSelection(e) {
+                if (e.target === stage) {
+                    transformer.nodes([]);
+                    return;
+                }
+                const group = e.target.getParent();
+                if (group && (group.hasName('cable') || group.hasName('splitter'))) {
+                    transformer.nodes([group]);
+                } else {
+                    if (e.target.name() === 'connector') {
+                        transformer.nodes([e.target]);
+                    } else {
+                        transformer.nodes([]);
+                    }
+                }
+            }
+
+            function calculateOrthogonalPoints(startPos, endPos) {
+                const midX = startPos.x + (endPos.x - startPos.x) / 2;
+                return [startPos.x, startPos.y, midX, startPos.y, midX, endPos.y, endPos.x, endPos.y];
+            }
+
+            function findElementAtPosition(pos) {
+                let foundElement = null;
+                let foundPoint = null;
+
+                mainLayer.find('.cable, .splitter').forEach(group => {
+                    (group.attrs.connectionPoints || []).forEach((point, index) => {
+                        const transform = group.getAbsoluteTransform();
+                        const worldPoint = transform.point(point);
+                        const distance = Math.sqrt(Math.pow(worldPoint.x - pos.x, 2) + Math.pow(worldPoint.y - pos.y, 2));
+                        if (distance < 15) {
+                            foundElement = group;
+                            foundPoint = { point: point, index: index, worldPos: worldPoint };
+                        }
+                    });
+                });
+
+                return foundElement ? { element: foundElement, connectionPoint: foundPoint } : null;
+            }
+
+            function handleLineDrawing(e) {
+                let pos = stage.getPointerPosition();
+                let snappedPos = getSnapPoint(pos) || pos;
+
+                if (!isDrawingLine) {
+                    isDrawingLine = true;
+                    lineStartPoint = snappedPos;
+                    startElement = findElementAtPosition(pos);
+
+                    previewLine = new Konva.Line({
+                        points: calculateOrthogonalPoints(snappedPos, snappedPos),
+                        stroke: selectedCanvasColor,
+                        strokeWidth: parseInt(brushSize.value),
+                        dash: [8, 4],
+                        name: 'connector_preview'
+                    });
+                    mainLayer.add(previewLine);
+                } else {
+                    endElement = findElementAtPosition(pos);
+
+                    const finalLine = new Konva.Line({
+                        points: calculateOrthogonalPoints(lineStartPoint, snappedPos),
+                        stroke: selectedCanvasColor,
+                        strokeWidth: parseInt(brushSize.value),
+                        name: 'connector',
+                        hitStrokeWidth: 20
+                    });
+
+                    finalLine.attrs.startConnection = startElement;
+                    finalLine.attrs.endConnection = endElement;
+
+                    mainLayer.add(finalLine);
+                    console.log('🔌 Línea creada con conexiones:', { start: startElement, end: endElement });
+
+                    abortLineDrawing();
+                }
+            }
+
+            function calculateAdaptiveLine(startPos, endPos) {
+                const dx = endPos.x - startPos.x;
+                const dy = endPos.y - startPos.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < 80) {
+                    return [startPos.x, startPos.y, endPos.x, endPos.y];
+                }
+
+                const controlDistance = Math.min(distance * 0.4, 100);
+
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    const midX1 = startPos.x + (dx > 0 ? controlDistance : -controlDistance);
+                    const midX2 = endPos.x - (dx > 0 ? controlDistance : -controlDistance);
+                    return [startPos.x, startPos.y, midX1, startPos.y, midX2, endPos.y, endPos.x, endPos.y];
+                } else {
+                    const midY1 = startPos.y + (dy > 0 ? controlDistance : -controlDistance);
+                    const midY2 = endPos.y - (dy > 0 ? controlDistance : -controlDistance);
+                    return [startPos.x, startPos.y, startPos.x, midY1, endPos.x, midY2, endPos.x, endPos.y];
+                }
+            }
+
+            function updateConnectedLines(movedElement) {
+                mainLayer.find('.connector').forEach(line => {
+                    let startPos, endPos, needsUpdate = false;
+
+                    if (line.attrs.startConnection && line.attrs.startConnection.element === movedElement) {
+                        const transform = movedElement.getAbsoluteTransform();
+                        startPos = transform.point(line.attrs.startConnection.connectionPoint.point);
+                        needsUpdate = true;
+                    } else if (line.attrs.startConnection) {
+                        const transform = line.attrs.startConnection.element.getAbsoluteTransform();
+                        startPos = transform.point(line.attrs.startConnection.connectionPoint.point);
+                    }
+
+                    if (line.attrs.endConnection && line.attrs.endConnection.element === movedElement) {
+                        const transform = movedElement.getAbsoluteTransform();
+                        endPos = transform.point(line.attrs.endConnection.connectionPoint.point);
+                        needsUpdate = true;
+                    } else if (line.attrs.endConnection) {
+                        const transform = line.attrs.endConnection.element.getAbsoluteTransform();
+                        endPos = transform.point(line.attrs.endConnection.connectionPoint.point);
+                    }
+
+                    if (needsUpdate && startPos && endPos) {
+                        const distance = Math.sqrt(Math.pow(endPos.x - startPos.x, 2) + Math.pow(endPos.y - startPos.y, 2));
+                        if (distance > 100) {
+                            line.points(calculateAdaptiveLine(startPos, endPos));
+                            line.tension(0.2);
+                        } else {
+                            line.points([startPos.x, startPos.y, endPos.x, endPos.y]);
+                            line.tension(0);
+                        }
+                    }
+                });
+                mainLayer.draw();
+            }
+
+            function restoreOriginalShape() {
+                mainLayer.find('.connector').forEach(line => {
+                    if (line.attrs.startConnection && line.attrs.endConnection) {
+                        const startTransform = line.attrs.startConnection.element.getAbsoluteTransform();
+                        const endTransform = line.attrs.endConnection.element.getAbsoluteTransform();
+                        const startPos = startTransform.point(line.attrs.startConnection.connectionPoint.point);
+                        const endPos = endTransform.point(line.attrs.endConnection.connectionPoint.point);
+                        line.points(calculateOrthogonalPoints(startPos, endPos));
+                        line.tension(0);
+                    }
+                });
+                mainLayer.draw();
+            }
+
+            function abortLineDrawing() {
+                isDrawingLine = false;
+                if (previewLine) previewLine.destroy();
+                previewLine = null;
+                startElement = null;
+                endElement = null;
+                snapIndicator.hide();
+                mainLayer.draw();
+            }
+
+            stage.on('mousemove', () => {
+                if (currentMode !== 'draw' || !isDrawingLine) return;
+                let pos = stage.getPointerPosition();
+                let endPos = getSnapPoint(pos) || pos;
+                if (getSnapPoint(pos)) {
+                    snapIndicator.position(endPos).show();
+                } else {
+                    snapIndicator.hide();
+                }
+                previewLine.points(calculateOrthogonalPoints(lineStartPoint, endPos));
+                mainLayer.draw();
+            });
+
+            function getSnapPoint(pos) {
+                let closestPoint = null;
+                let minDistance = 15;
+                mainLayer.find('.cable, .splitter').forEach(group => {
+                    (group.attrs.connectionPoints || []).forEach(point => {
+                        const transform = group.getAbsoluteTransform();
+                        const worldPoint = transform.point(point);
+                        const distance = Math.sqrt(Math.pow(worldPoint.x - pos.x, 2) + Math.pow(worldPoint.y - pos.y, 2));
+                        if (distance < minDistance) {
+                            minDistance = distance;
+                            closestPoint = worldPoint;
+                        }
+                    });
+                });
+                return closestPoint;
+            }
+
+            // --- 5. FUNCIONES DE CREACIÓN DE COMPONENTES ---
+            componentControls.addEventListener('click', (e) => {
+                const target = e.target;
+                if (target.tagName !== 'BUTTON') return;
+                if (target.dataset.strands) {
+                    const newCable = createCableGroup(parseInt(target.dataset.strands));
+                    newCable.position({ x: 100, y: 250 });
+                    mainLayer.add(newCable);
+                    templateCableGroup = newCable;
+                } else if (target.dataset.splitterOut) {
+                    const splitterGroup = createSplitterGroup(1, parseInt(target.dataset.splitterOut));
+                    splitterGroup.position({ x: 750 - 150, y: 250 });
+                    mainLayer.add(splitterGroup);
+                }
+                mainLayer.draw();
+            });
+
+            @* function createCableGroup(numStrands) {
+                const group = new Konva.Group({ draggable: true, name: 'cable', connectionPoints: [] });
+                const lineThickness = 3, verticalSpacing = 15, cableWidth = 30, diagonalSlope = -25;
+                const totalHeight = (numStrands - 1) * verticalSpacing;
+                const startY = -totalHeight / 2;
+                let firstDiagonalY, lastDiagonalY;
+
+                for (let i = 0; i < numStrands; i++) {
+                    const currentY = startY + (i * verticalSpacing);
+                    const endY = currentY + diagonalSlope;
+                    if (i === 0) firstDiagonalY = currentY;
+                    if (i === numStrands - 1) lastDiagonalY = currentY;
+                    group.add(new Konva.Line({ points: [0, currentY, cableWidth, endY], stroke: 'black', strokeWidth: lineThickness, lineCap: 'round', listening: false }));
+                    group.attrs.connectionPoints.push({ x: cableWidth, y: endY });
+                }
+
+                group.add(new Konva.Line({ points: [0, firstDiagonalY, 0, lastDiagonalY], stroke: 'black', strokeWidth: lineThickness, lineCap: 'round', listening: false }));
+                const hitbox = new Konva.Rect({ ...group.getClientRect({ relativeTo: group }), fill: 'transparent' });
+                group.add(hitbox);
+                hitbox.moveToBottom();
+
+                group.on('dragmove', () => updateConnectedLines(group));
+                group.on('transform', () => updateConnectedLines(group));
+                group.on('dragend', () => restoreOriginalShape());
+
+                return group;
+            } *@
+
+
+                function createCableGroup(numStrands) {
+                    const group = new Konva.Group({ draggable: true, name: 'cable', connectionPoints: [] });
+                    const lineThickness = 3, verticalSpacing = 15, cableWidth = 30, diagonalSlope = -25;
+                    const totalHeight = (numStrands - 1) * verticalSpacing;
+                    const startY = -totalHeight / 2;
+                    let firstDiagonalY, lastDiagonalY;
+
+
+
+                    // --- ¡AQUÍ ESTÁ LA LÓGICA DE COLOR! ---
+                    // 1. Seleccionamos la paleta de colores correcta.
+                    // Si existe una paleta para el número exacto de hilos (como para 5), la usamos.
+                    // Si no, usamos la paleta por defecto (la de 12 colores).
+                    const colorsToUse = CABLE_COLOR_PALETTES[numStrands] || CABLE_COLOR_PALETTES.default;
+
+                    // Guardamos los colores en un atributo personalizado para poder leerlos fácilmente al guardar.
+                    group.attrs.strandColors = [];
+
+                    for (let i = 0; i < numStrands; i++) {
+                        const currentY = startY + (i * verticalSpacing);
+                        const endY = currentY + diagonalSlope;
+
+                        // 2. Obtenemos el color para este hilo específico.
+                        // El operador '%' (módulo) hace que si hay más de 12 hilos, los colores se repitan cíclicamente.
+                        const strandColor = colorsToUse[i % colorsToUse.length];
+
+                        // ¡IMPORTANTE! Guardamos el color que realmente se usó en nuestro atributo personalizado.
+                        group.attrs.strandColors.push(strandColor);
+
+                        if (i === 0) firstDiagonalY = currentY;
+                        if (i === numStrands - 1) lastDiagonalY = currentY;
+
+                        // 3. ¡MEJORA IMPORTANTE!
+                        // El color blanco no se ve en el lienzo. Para solucionarlo, si el color es blanco,
+                        // dibujamos primero un borde negro para que siempre sea visible.
+                        if (strandColor === '#ffffff') {
+                            // Dibujamos una línea negra un poco más gruesa primero, que actuará como borde.
+                            group.add(new Konva.Line({
+                                points: [0, currentY, cableWidth, endY],
+                                stroke: 'black',
+                                strokeWidth: lineThickness, // Grosor total del borde
+                                lineCap: 'round',
+                                listening: false
+                            }));
+                            // Luego dibujamos la línea blanca encima, un poco más fina.
+                            group.add(new Konva.Line({
+                                points: [0, currentY, cableWidth, endY],
+                                stroke: strandColor,
+                                strokeWidth: lineThickness - 1.5, // Grosor de la línea interior blanca
+                                lineCap: 'round',
+                                listening: false
+                            }));
+                        } else {
+                            // Para todos los demás colores, dibujamos una sola línea de forma normal.
+                            group.add(new Konva.Line({
+                                points: [0, currentY, cableWidth, endY],
+                                stroke: strandColor, // Usamos el color obtenido en lugar de 'black'
+                                strokeWidth: lineThickness,
+                                lineCap: 'round',
+                                listening: false
+                            }));
+                        }
+
+                        // El punto de conexión se añade al final, sin cambios.
+                        group.attrs.connectionPoints.push({ x: cableWidth, y: endY });
+                    }
+
+                    group.add(new Konva.Line({ points: [0, firstDiagonalY, 0, lastDiagonalY], stroke: 'black', strokeWidth: lineThickness, lineCap: 'round', listening: false }));
+                    const hitbox = new Konva.Rect({ ...group.getClientRect({ relativeTo: group }), fill: 'transparent' });
+                    group.add(hitbox);
+                    hitbox.moveToBottom();
+
+                    group.on('dragmove', () => updateConnectedLines(group));
+                    group.on('transform', () => updateConnectedLines(group));
+                    group.on('dragend', () => restoreOriginalShape());
+
+                    return group;
+                }
+
+
+            function createSplitterGroup(numInputs, numOutputs) {
+                const group = new Konva.Group({ draggable: true, name: 'splitter', connectionPoints: [] });
+                const spacing = 20, width = 60, height = (numOutputs - 1) * spacing;
+                group.attrs.connectionPoints.push({ x: 0, y: 0 });
+
+                const hitbox = new Konva.Rect({ x: 0, y: -height / 2, width: width, height: height, fill: 'transparent' });
+                group.add(hitbox);
+                group.add(new Konva.Line({ points: [0, 0, width, -height / 2, width, height / 2], closed: true, fill: 'white', stroke: 'black', strokeWidth: 2, listening: false }));
+                group.add(new Konva.Circle({ x: 0, y: 0, radius: 5, fill: 'black', listening: false }));
+
+                for (let i = 0; i < numOutputs; i++) {
+                    const y = -height / 2 + i * spacing;
+                    group.attrs.connectionPoints.push({ x: width, y: y });
+                    group.add(new Konva.Circle({ x: width, y: y, radius: 5, fill: 'black', listening: false }));
+                }
+
+                group.on('dragmove', () => updateConnectedLines(group));
+                group.on('transform', () => updateConnectedLines(group));
+                group.on('dragend', () => restoreOriginalShape());
+
+
+                return group;
+            }
+
+            // =========================================================================
+            // === NUEVA FUNCIÓN AÑADIDA: RECOPILAR DATOS PARA ENVIAR ==================
+            // =========================================================================
+            /**
+             * Esta función lee todos los elementos del lienzo y los prepara en un formato JSON
+             * que tu controlador C# puede entender. No modifica el dibujo, solo lo lee.
+             */
+            function recopilarDatosDelDibujo() {
+                const nodos = [];
+                const conexiones = [];
+
+                // ESTA ES LA VERSIÓN CORRECTA
+                const asignarIdTemporal = (elemento) => {
+                    if (!elemento.attrs.clienteId) {
+                        // Creamos un ID único usando la fecha actual y un número aleatorio.
+                        // Esto es un método estándar y muy seguro para este propósito.
+                        const idUnico = Date.now().toString(36) + Math.random().toString(36).substring(2);
+                        elemento.attrs.clienteId = 'cliente_' + idUnico;
+                    }
+                    return elemento.attrs.clienteId;
+                };
+
+                // 1. Recorrer los Nodos (cables y splitters)
+                mainLayer.find('.cable, .splitter').forEach(grupo => {
+
+                    let size = 0;
+                    let strandColorsJson = null;
+
+                    if (grupo.name() === 'cable') {
+                        size = grupo.attrs.connectionPoints.length;
+                        // --- ¡AQUÍ LEEMOS LOS COLORES DEL ATRIBUTO PERSONALIZADO! ---
+                        if (grupo.attrs.strandColors) {
+                            strandColorsJson = JSON.stringify(grupo.attrs.strandColors);
+                        }
+                    } else if (grupo.name() === 'splitter') {
+                        // Un splitter tiene un punto de entrada, así que el número de salidas es el total de puntos - 1
+                        size = grupo.attrs.connectionPoints.length - 1;
+                    }
+                    nodos.push({
+                        ClienteId: asignarIdTemporal(grupo),
+                        Type: grupo.name(),
+                        CoordinateX: grupo.x(),
+                        CoordinateY: grupo.y(),
+                        Rotation: grupo.rotation(),
+                        //añadimos el tamaño calculado
+                        Size: size,
+                        TypeSplitter: grupo.name() === 'splitter' ? `1x${size}` : null,
+
+                        // --- ¡Y AQUÍ LOS AÑADIMOS AL OBJETO QUE SE ENVIARÁ! ---
+                        StrandColorsJson: strandColorsJson
+                    });
+                });
+
+                // 2. Recorrer las Conexiones (líneas)
+                mainLayer.find('.connector').forEach(linea => {
+                    if (linea.attrs.startConnection && linea.attrs.endConnection) {
+                        conexiones.push({
+                            Color: linea.stroke(),
+                            Thickness: linea.strokeWidth(),
+                            OrigenNodoClienteId: asignarIdTemporal(linea.attrs.startConnection.element),
+                            DestinationNodoClienteId: asignarIdTemporal(linea.attrs.endConnection.element),
+
+                            // --- ¡NUEVAS LÍNEAS! Guardamos el índice del punto de conexión ---
+                            OrigenPuntoIndex: linea.attrs.startConnection.connectionPoint.index,
+                            DestinoPuntoIndex: linea.attrs.endConnection.connectionPoint.index,
+
+
+                            JsonIntermediatePoints: JSON.stringify(linea.points())
+                        });
+                    }
+                });
+
+                return { Nodos: nodos, Connections: conexiones };
+            }
+
+
+            // --- 6. LÓGICA DE TECLAS Y BOTONES ---
+            clearCanvasBtn.addEventListener('click', () => {
+                const children = mainLayer.getChildren();
+
+
+                for (let i = children.length - 1; i >= 0; i--) {
+                    const child = children[i];
+                    if (child.name() !== 'tool_transformer' && child.name() !== 'tool_snap_indicator') {
+                        child.destroy();
+                    }
+                }
+                transformer.nodes([]);
+                templateCableGroup = null;
+                mainLayer.draw();
+            });
+
+            // =========================================================================
+            // === LÓGICA DEL BOTÓN GUARDAR REEMPLAZADA ================================
+            // =========================================================================
+            /**
+             * En lugar de descargar una imagen, ahora recopila los datos y los envía
+             * al controlador .NET Core mediante una llamada AJAX (fetch).
+             */
+            saveCanvasBtn.addEventListener('click', () => {
+                transformer.nodes([]);
+                snapIndicator.hide();
+                mainLayer.draw();
+
+                // 1. Llamar a la nueva función para obtener los datos del dibujo en formato JSON.
+                const datosDelDibujo = recopilarDatosDelDibujo();
+
+                if (datosDelDibujo.Nodos.length === 0 && datosDelDibujo.Connections.length === 0) {
+                    alert("No hay nada en el lienzo para guardar.");
+                    return;
+                }
+
+                if (!selectedMapElementData) {
+                    alert("Error: No se ha seleccionado ningún elemento del mapa. Cierra esta ventana y haz clic en una caja en el mapa primero.");
+                    return;
+                }
+
+                const payloadCompleto = {
+                    // Datos que vienen del mapa y del proyecto
+                    ElementProjectId: selectedMapElementData.databaseId,
+                    ProjectId: currentProjectId,
+                    Lat: selectedMapElementData.lat,
+                    Lng: selectedMapElementData.lng,
+                    ElementTypeId: selectedMapElementData.elementTypeId,
+
+                    // Y aquí anidamos los datos que vienen del lienzo de Konva
+                    DrawingData: datosDelDibujo
+                };
+
+                console.log("Enviando estos datos al servidor:", JSON.stringify(payloadCompleto, null, 2));
+
+                // Usamos jQuery AJAX para enviar los datos
+                $.ajax({
+                    url: '/Project/Save', // La dirección del controlador
+                    type: 'POST',             // Método para crear nuevos datos
+                    contentType: 'application/json; charset=utf-8', // Decirle al servidor que enviamos JSON
+                    dataType: 'json',         // Decirle a jQuery que esperamos una respuesta JSON
+                    data: JSON.stringify(payloadCompleto), // Los datos a enviar, convertidos a texto
+
+                    success: function (data) {
+                        // Esto se ejecuta si la llamada es exitosa
+                        console.log('Respuesta exitosa:', data);
+                        alert(`¡Dibujo guardado con éxito! ID del Dibujo: ${data.drawingId}`);
+                    },
+                    error: function (xhr, status, error) {
+                        // Esto se ejecuta si hay un error
+                        console.error('Error al guardar el dibujo:', { status: status, error: error, response: xhr.responseText });
+                        alert(`Ocurrió un error al guardar: ${xhr.responseText || error}`);
+                    }
+                });
+            });
+
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'Delete' || e.key === 'Backspace') {
+                    const selectedNodes = transformer.nodes();
+                    if (selectedNodes.length > 0) {
+                        transformer.nodes([]);
+                        selectedNodes.forEach(node => {
+                            node.destroy();
+                        });
+                        mainLayer.draw();
+                    }
+                }
+                if (e.key.toLowerCase() === 'd' && templateCableGroup && currentMode === 'select') {
+                    const newCable = templateCableGroup.clone();
+                    const pos = templateCableGroup.position();
+                    newCable.position({ x: pos.x + 20, y: pos.y + 20 });
+
+                    newCable.on('dragmove', () => updateConnectedLines(newCable));
+                    newCable.on('transform', () => updateConnectedLines(newCable));
+                    newCable.on('dragend', () => restoreOriginalShape());
+
+                    mainLayer.add(newCable);
+                    mainLayer.draw();
+                }
+            });
+
+            colorPicker.addEventListener('input', () => {
+                const selectedNodes = transformer.nodes();
+                if (selectedNodes.length > 0) {
+                    selectedNodes.forEach(node => {
+                        if (node.getClassName() === 'Line' && node.name() === 'connector') {
+                            node.stroke(colorPicker.value);
+                        }
+                    });
+                    mainLayer.draw();
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (e.target.classList.contains('canvas-color-btn')) {
+                    const newColor = e.target.dataset.color;
+                    const selectedNodes = transformer.nodes();
+                    if (selectedNodes.length > 0) {
+                        selectedNodes.forEach(node => {
+                            if (node.getClassName() === 'Line' && node.name() === 'connector') {
+                                node.stroke(newColor);
+                            }
+                        });
+                        mainLayer.draw();
+                    }
+                }
+            });
+
+
+            // Función para borrar todo el contenido del lienzo
+            function limpiarLienzoKonva() {
+                // Busca y destruye todos los nodos y conectores que no sean herramientas
+                mainLayer.find('.cable, .splitter, .connector').forEach(shape => {
+                    shape.destroy();
+                });
+                // Vuelve a dibujar el lienzo vacío
+                mainLayer.draw();
+                console.log("Lienzo de Konva limpiado.");
+            }
+
+
+            // Tu función, pero MEJORADA para manejar la rotación correctamente
+            function dibujarDesdeDatos(drawingData) {
+                if (!drawingData) return;
+                if (!drawingData.nodos || !drawingData.connections) {
+                    console.error("Los datos del dibujo no tienen el formato esperado.", drawingData);
+                    return;
+                }
+
+                const nodosKonvaMap = new Map();
+
+                // 1. DIBUJAR LOS NODOS (Tu código aquí es perfecto)
+                drawingData.nodos.forEach(nodoDto => {
+                    let nuevoGrupo;
+                    // El '|| 4' es un valor por defecto seguro por si cargas datos antiguos que no tenían tamaño.
+                    const size = nodoDto.size || 4;
+
+                    // --- ¡AQUÍ LEEMOS LOS COLORES RECIBIDOS DEL SERVIDOR! ---
+                    let strandColors = null;
+                    if (nodoDto.strandColorsJson) {
+                        try {
+                            strandColors = JSON.parse(nodoDto.strandColorsJson);
+                        } catch (e) {
+                            console.error("Error al parsear los colores del hilo:", e);
+                        }
+                    }
+
+                    if (nodoDto.type === 'cable') {
+                        // NOTA: Aquí asumes que el cable es de 4 hilos. Si guardaras el número
+                        // de hilos, podrías pasarlo aquí: createCableGroup(nodoDto.strands || 4)
+                        nuevoGrupo = createCableGroup(size, strandColors);
+                    } else if (nodoDto.type === 'splitter') {
+                        nuevoGrupo = createSplitterGroup(1, size);
+                    }
+
+                    if (nuevoGrupo) {
+                        nuevoGrupo.position({ x: nodoDto.coordinateX, y: nodoDto.coordinateY });
+                        nuevoGrupo.rotation(nodoDto.rotation || 0); // Se aplica la rotación
+                        nuevoGrupo.attrs.clienteId = nodoDto.clienteId;
+                        mainLayer.add(nuevoGrupo);
+                        nodosKonvaMap.set(nodoDto.clienteId, nuevoGrupo);
+                    }
+                });
+
+                // 2. DIBUJAR LAS CONEXIONES (Aquí aplicamos la mejora)
+                drawingData.connections.forEach(connDto => {
+                    const grupoOrigen = nodosKonvaMap.get(connDto.origenNodoClienteId);
+                    const grupoDestino = nodosKonvaMap.get(connDto.destinationNodoClienteId);
+
+                    if (grupoOrigen && grupoDestino) {
+                        // --- INICIO DE LA MEJORA ---
+                        // ANTES: Usábamos los puntos guardados, que podían no coincidir tras la rotación.
+                        // const puntos = JSON.parse(connDto.jsonIntermediatePoints);
+
+                        // AHORA: Recalculamos los puntos basándonos en la posición y rotación ACTUALES
+                        // de los componentes. Esto es más seguro.
+
+                        // Usamos el índice guardado. Si no existe (para datos antiguos), usamos 0 por seguridad.
+                        const origenIndex = connDto.origenPuntoIndex || 0;
+                        const destinoIndex = connDto.destinoPuntoIndex || 0;
+
+                        // Advertencia: Para que esto sea 100% perfecto, necesitaríamos saber a QUÉ
+                        // punto de conexión específico (ej. el 3er hilo) se conectó la línea.
+                        // Como no guardamos ese dato, conectaremos al primer punto disponible como aproximación.
+                        // ¡CÓDIGO CORRECTO!
+                        const puntoOrigenRelativo = grupoOrigen.attrs.connectionPoints[origenIndex] || { x: 0, y: 0 };
+                        const puntoDestinoRelativo = grupoDestino.attrs.connectionPoints[destinoIndex] || { x: 0, y: 0 };
+
+                        const transformOrigen = grupoOrigen.getAbsoluteTransform();
+                        const transformDestino = grupoDestino.getAbsoluteTransform();
+
+                        const posAbsolutaOrigen = transformOrigen.point(puntoOrigenRelativo);
+                        const posAbsolutaDestino = transformDestino.point(puntoDestinoRelativo);
+
+                        const puntos = calculateOrthogonalPoints(posAbsolutaOrigen, posAbsolutaDestino);
+                        // Usamos tu propia lógica para crear la línea, asegurando consistencia.
+                        //const puntos = calculateAdaptiveLine(posAbsolutaOrigen, posAbsolutaDestino);
+                        // --- FIN DE LA MEJORA ---
+
+                        const linea = new Konva.Line({
+                            points: puntos, // Usamos los puntos recién calculados
+                            stroke: connDto.color,
+                            strokeWidth: connDto.thickness,
+                            name: 'connector',
+                            hitStrokeWidth: 20
+                        });
+
+                        // =======================================================================
+                        // === ¡Y AQUÍ! También guardamos el índice para que el arrastre funcione. ===
+                        // =======================================================================
+                        linea.attrs.startConnection = { element: grupoOrigen, connectionPoint: { point: puntoOrigenRelativo, index: origenIndex } };
+                        linea.attrs.endConnection = { element: grupoDestino, connectionPoint: { point: puntoDestinoRelativo, index: destinoIndex } };
+
+                        mainLayer.add(linea);
+                    }
+                });
+
+                mainLayer.draw();
+                console.log("Dibujo cargado desde los datos del servidor (con recalculación de líneas).");
+            }
+
+
+            @* function dibujarDesdeDatos(drawingData) {
+    console.log("=====================================");
+    console.log("== INICIANDO DEPURACIÓN DE DIBUJADO ==");
+    console.log("=====================================");
+
+    // 1. Verificaciones de seguridad
+    if (!drawingData) {
+        console.error("ERROR FATAL: El objeto drawingData es nulo o indefinido.");
+        return;
+    }
+    if (!drawingData.nodos || !drawingData.connections) {
+        console.error("ERROR FATAL: Faltan las propiedades 'nodos' o 'connections'.", drawingData);
+        return;
+    }
+
+    const nodosKonvaMap = new Map();
+
+    // 2. DIBUJAR LOS COMPONENTES
+    console.log(`---> Paso 1: Dibujando ${drawingData.nodos.length} nodos...`);
+    drawingData.nodos.forEach((nodoDto, i) => {
+        console.log(`   [Nodo ${i}] Datos recibidos:`, JSON.parse(JSON.stringify(nodoDto)));
+        
+        let nuevoGrupo;
+        const size = nodoDto.size || 4; 
+
+        if (nodoDto.type === 'cable') {
+            nuevoGrupo = createCableGroup(size);
+        } else if (nodoDto.type === 'splitter') {
+            nuevoGrupo = createSplitterGroup(1, size);
+        }
+
+        if (nuevoGrupo) {
+            nuevoGrupo.position({ x: nodoDto.coordinateX, y: nodoDto.coordinateY });
+            nuevoGrupo.rotation(nodoDto.rotation || 0); 
+            nuevoGrupo.attrs.clienteId = nodoDto.clienteId;
+            mainLayer.add(nuevoGrupo);
+            nodosKonvaMap.set(nodoDto.clienteId, nuevoGrupo);
+            
+            console.log(`   [Nodo ${i}] Creado y posicionado. ClienteId: ${nodoDto.clienteId}`);
+            console.log(`   [Nodo ${i}] Puntos de conexión disponibles:`, nuevoGrupo.attrs.connectionPoints);
+        } else {
+            console.error(`   [Nodo ${i}] No se pudo crear el grupo para el tipo: ${nodoDto.type}`);
+        }
+    });
+
+    // 3. DIBUJAR LAS LÍNEAS
+    console.log(`---> Paso 2: Dibujando ${drawingData.connections.length} conexiones...`);
+    drawingData.connections.forEach((connDto, i) => {
+        console.log(`   [Conexión ${i}] Datos recibidos:`, JSON.parse(JSON.stringify(connDto)));
+
+        const grupoOrigen = nodosKonvaMap.get(connDto.origenNodoClienteId);
+        const grupoDestino = nodosKonvaMap.get(connDto.destinationNodoClienteId);
+
+        if (grupoOrigen && grupoDestino) {
+            console.log(`   [Conexión ${i}] Nodos de origen y destino encontrados.`);
+
+            const origenIndex = connDto.origenPuntoIndex;
+            const destinoIndex = connDto.destinoPuntoIndex;
+            console.log(`   [Conexión ${i}] Índice Origen: ${origenIndex}, Índice Destino: ${destinoIndex}`);
+
+            const puntosOrigen = grupoOrigen.attrs.connectionPoints;
+            const puntosDestino = grupoDestino.attrs.connectionPoints;
+
+            if (origenIndex >= 0 && origenIndex < puntosOrigen.length &&
+                destinoIndex >= 0 && destinoIndex < puntosDestino.length) {
+                
+                const puntoOrigenRelativo = puntosOrigen[origenIndex];
+                const puntoDestinoRelativo = puntosDestino[destinoIndex];
+                console.log(`   [Conexión ${i}] Punto Relativo Origen:`, puntoOrigenRelativo);
+                console.log(`   [Conexión ${i}] Punto Relativo Destino:`, puntoDestinoRelativo);
+
+                const posAbsolutaOrigen = grupoOrigen.getAbsoluteTransform().point(puntoOrigenRelativo);
+                const posAbsolutaDestino = grupoDestino.getAbsoluteTransform().point(puntoDestinoRelativo);
+                console.log(`   [Conexión ${i}] Posición Absoluta Origen:`, posAbsolutaOrigen);
+                console.log(`   [Conexión ${i}] Posición Absoluta Destino:`, posAbsolutaDestino);
+                
+                const puntosNuevos = calculateOrthogonalPoints(posAbsolutaOrigen, posAbsolutaDestino);
+                console.log(`   [Conexión ${i}] Puntos de línea calculados:`, puntosNuevos);
+
+                const linea = new Konva.Line({
+                    points: puntosNuevos,
+                    stroke: connDto.color,
+                    strokeWidth: connDto.thickness,
+                    name: 'connector',
+                    hitStrokeWidth: 20
+                });
+
+                linea.attrs.startConnection = { element: grupoOrigen, connectionPoint: { point: puntoOrigenRelativo, index: origenIndex, worldPos: posAbsolutaOrigen } };
+                linea.attrs.endConnection = { element: grupoDestino, connectionPoint: { point: puntoDestinoRelativo, index: destinoIndex, worldPos: posAbsolutaDestino } };
+                mainLayer.add(linea);
+
+            } else {
+                console.error(`   [Conexión ${i}] ¡ERROR! Índices fuera de rango. Índice Origen: ${origenIndex} (max: ${puntosOrigen.length-1}), Índice Destino: ${destinoIndex} (max: ${puntosDestino.length-1})`);
+            }
+        } else {
+            console.error(`   [Conexión ${i}] ¡ERROR! No se encontró el nodo de origen o destino. Origen: ${connDto.origenNodoClienteId}, Destino: ${connDto.destinationNodoClienteId}`);
+        }
+    });
+
+    // 4. Renderizar
+    mainLayer.draw();
+    console.log("=====================================");
+    console.log("== FIN DE DEPURACIÓN DE DIBUJADO ====");
+    console.log("=====================================");
+} *@
+
+
+                window.dibujarDesdeDatosGlobal = dibujarDesdeDatos;
+            window.limpiarLienzoKonvaGlobal = limpiarLienzoKonva;
+
+        });
+
+
+
+
+        @* // Función para borrar todo el contenido del lienzo
+        function limpiarLienzoKonva() {
+            // Busca y destruye todos los nodos y conectores que no sean herramientas
+            mainLayer.find('.cable, .splitter, .connector').forEach(shape => {
+                shape.destroy();
+            });
+            // Vuelve a dibujar el lienzo vacío
+            mainLayer.draw();
+            console.log("Lienzo de Konva limpiado.");
+        } *@
+
+
+
+
+
     </script>
 
     @* Carga la API de Google Maps. ¡Asegúrate de que 'libraries=drawing' esté presente! *

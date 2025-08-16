@@ -68,6 +68,57 @@ namespace GoogleRuta.Migrations
                     b.ToTable("ColorTraces");
                 });
 
+            modelBuilder.Entity("GoogleRuta.Models.Connection", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Color")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("DestinationNodoId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DestinoPuntoIndex")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DrawingId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("JsonIntermediatePoints")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("OrigenNodoId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OrigenPuntoIndex")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OriginNodoId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("Thickness")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Type")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DestinationNodoId");
+
+                    b.HasIndex("DrawingId");
+
+                    b.HasIndex("OrigenNodoId");
+
+                    b.ToTable("Connections");
+                });
+
             modelBuilder.Entity("GoogleRuta.Models.CoordinateB", b =>
                 {
                     b.Property<int>("Id")
@@ -92,6 +143,19 @@ namespace GoogleRuta.Migrations
                     b.ToTable("CoordinateBs");
                 });
 
+            modelBuilder.Entity("GoogleRuta.Models.Drawing", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Drawings");
+                });
+
             modelBuilder.Entity("GoogleRuta.Models.ElementProject", b =>
                 {
                     b.Property<int>("Id")
@@ -102,6 +166,9 @@ namespace GoogleRuta.Migrations
 
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("DrawingId")
+                        .HasColumnType("int");
 
                     b.Property<int?>("ElementTypeId")
                         .HasColumnType("int");
@@ -116,6 +183,8 @@ namespace GoogleRuta.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("DrawingId");
 
                     b.HasIndex("ElementTypeId");
 
@@ -142,6 +211,45 @@ namespace GoogleRuta.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("ElementTypes");
+                });
+
+            modelBuilder.Entity("GoogleRuta.Models.Nodo", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<double>("CoordinateX")
+                        .HasColumnType("float");
+
+                    b.Property<double>("CoordinateY")
+                        .HasColumnType("float");
+
+                    b.Property<int>("DrawingId")
+                        .HasColumnType("int");
+
+                    b.Property<double>("Rotation")
+                        .HasColumnType("float");
+
+                    b.Property<int?>("Size")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StrandColorsJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Type")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TypeSplitter")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DrawingId");
+
+                    b.ToTable("Nodos");
                 });
 
             modelBuilder.Entity("GoogleRuta.Models.Project", b =>
@@ -376,6 +484,33 @@ namespace GoogleRuta.Migrations
                     b.Navigation("Project");
                 });
 
+            modelBuilder.Entity("GoogleRuta.Models.Connection", b =>
+                {
+                    b.HasOne("GoogleRuta.Models.Nodo", "DestinationNodo")
+                        .WithMany()
+                        .HasForeignKey("DestinationNodoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoogleRuta.Models.Drawing", "Drawing")
+                        .WithMany("Connections")
+                        .HasForeignKey("DrawingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GoogleRuta.Models.Nodo", "OriginNodo")
+                        .WithMany()
+                        .HasForeignKey("OrigenNodoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("DestinationNodo");
+
+                    b.Navigation("Drawing");
+
+                    b.Navigation("OriginNodo");
+                });
+
             modelBuilder.Entity("GoogleRuta.Models.CoordinateB", b =>
                 {
                     b.HasOne("GoogleRuta.Models.Project", "Project")
@@ -389,6 +524,10 @@ namespace GoogleRuta.Migrations
 
             modelBuilder.Entity("GoogleRuta.Models.ElementProject", b =>
                 {
+                    b.HasOne("GoogleRuta.Models.Drawing", "Drawing")
+                        .WithMany()
+                        .HasForeignKey("DrawingId");
+
                     b.HasOne("GoogleRuta.Models.ElementType", "ElementType")
                         .WithMany("ElementProject")
                         .HasForeignKey("ElementTypeId")
@@ -400,9 +539,22 @@ namespace GoogleRuta.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.Navigation("Drawing");
+
                     b.Navigation("ElementType");
 
                     b.Navigation("Project");
+                });
+
+            modelBuilder.Entity("GoogleRuta.Models.Nodo", b =>
+                {
+                    b.HasOne("GoogleRuta.Models.Drawing", "Drawing")
+                        .WithMany("Nodos")
+                        .HasForeignKey("DrawingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Drawing");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -459,6 +611,13 @@ namespace GoogleRuta.Migrations
             modelBuilder.Entity("GoogleRuta.Models.ColorTraces", b =>
                 {
                     b.Navigation("ColorThreadProjects");
+                });
+
+            modelBuilder.Entity("GoogleRuta.Models.Drawing", b =>
+                {
+                    b.Navigation("Connections");
+
+                    b.Navigation("Nodos");
                 });
 
             modelBuilder.Entity("GoogleRuta.Models.ElementType", b =>

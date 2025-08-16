@@ -2468,3 +2468,5 @@ C:\Users\USUARIO\Desktop\GoogleRuta\GoogleRuta\bin\Debug\net9.0\zh-Hant\Microsof
 C:\Users\USUARIO\Desktop\GoogleRuta\GoogleRuta\obj\Debug\net9.0\compressed\p8q9ljg2bg-e5x9ot218h.gz
 C:\Users\USUARIO\Desktop\GoogleRuta\GoogleRuta\obj\Debug\net9.0\compressed\h80i9bkx3l-q9o41ex96w.gz
 C:\Users\USUARIO\Desktop\GoogleRuta\GoogleRuta\obj\Debug\net9.0\compressed\ua4gd7tb99-o65s6mru9f.gz
+C:\Users\USUARIO\Desktop\GoogleRuta\GoogleRuta\obj\Debug\net9.0\GoogleRuta.sourcelink.json
+C:\Users\USUARIO\Desktop\GoogleRuta\GoogleRuta\obj\Debug\net9.0\compressed\h8xog1gv1t-e5x9ot218h.gz

@@ -43,10 +43,12 @@ public class ProjectService : IProjectService
                 }).ToList(),
                 
                 PlacedElementse = project.ElementProjects.Select(e => new PlacedElement
-            {
-                Lat = e.Lat,
-                Lng = e.Lng,
-                ElementTypeId = e.ElementTypeId
+                {
+                    Id = e.Id,
+                    Lat = e.Lat,
+                    Lng = e.Lng,
+                    ElementTypeId = e.ElementTypeId,
+                    DrawingId=e.DrawingId
             }).ToList()
 
             };

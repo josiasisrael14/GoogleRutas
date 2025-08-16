@@ -18,6 +18,9 @@ namespace GoogleRuta.Data
         public DbSet<ElementType> ElementTypes { get; set; }
         public DbSet<ColorTraces> ColorTraces { get; set; }
         public DbSet<ColorThreadProject> ColorThreadProjects { get; set; }
+        public DbSet<Nodo> Nodos { get; set; }
+        public DbSet<Connection> Connections { get; set; }
+        public DbSet<Drawing> Drawings { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -73,6 +76,23 @@ namespace GoogleRuta.Data
             //     .WithOne(ep => ep.CoordinateB)
             //     .HasForeignKey(ep => ep.CoordinateBId)
             //     .OnDelete(DeleteBehavior.Restrict);
+
+
+            // Agrega esto al final de tu método OnModelCreating
+            // ---
+            // Configuración para la relación de Origen (OriginNodoId)
+            modelBuilder.Entity<Connection>()
+                .HasOne(c => c.OriginNodo) // Una conexión tiene un nodo de origen
+                .WithMany()                // Un nodo puede ser el origen de muchas conexiones
+                .HasForeignKey(c => c.OrigenNodoId)
+                .OnDelete(DeleteBehavior.Restrict); // ¡Importante! No borrar en cascada
+
+            // Configuración para la relación de Destino (DestinationNodoId)
+            modelBuilder.Entity<Connection>()
+                .HasOne(c => c.DestinationNodo) // Una conexión tiene un nodo de destino
+                .WithMany()                    // Un nodo puede ser el destino de muchas conexiones
+                .HasForeignKey(c => c.DestinationNodoId)
+                .OnDelete(DeleteBehavior.Restrict); // ¡Importante! No borrar en cascada
 
         }
     }
