@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\USUARIO\\Desktop\\GoogleRuta\\GoogleRuta\\GoogleRuta.csproj": {}
+    "C:\\Users\\USUARIO\\Desktop\\GoogleRuta\\Googleruta\\GoogleRuta.csproj": {}
   },
   "projects": {
-    "C:\\Users\\USUARIO\\Desktop\\GoogleRuta\\GoogleRuta\\GoogleRuta.csproj": {
+    "C:\\Users\\USUARIO\\Desktop\\GoogleRuta\\Googleruta\\GoogleRuta.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\USUARIO\\Desktop\\GoogleRuta\\GoogleRuta\\GoogleRuta.csproj",
+        "projectUniqueName": "C:\\Users\\USUARIO\\Desktop\\GoogleRuta\\Googleruta\\GoogleRuta.csproj",
         "projectName": "GoogleRuta",
-        "projectPath": "C:\\Users\\USUARIO\\Desktop\\GoogleRuta\\GoogleRuta\\GoogleRuta.csproj",
+        "projectPath": "C:\\Users\\USUARIO\\Desktop\\GoogleRuta\\Googleruta\\GoogleRuta.csproj",
         "packagesPath": "C:\\Users\\USUARIO\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\USUARIO\\Desktop\\GoogleRuta\\GoogleRuta\\obj\\",
+        "outputPath": "C:\\Users\\USUARIO\\Desktop\\GoogleRuta\\Googleruta\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\USUARIO\\AppData\\Roaming\\NuGet\\NuGet.Config"

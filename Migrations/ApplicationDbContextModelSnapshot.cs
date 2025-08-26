@@ -151,6 +151,12 @@ namespace GoogleRuta.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("JsonContent")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SvgContent")
+                        .HasColumnType("TEXT");
+
                     b.HasKey("Id");
 
                     b.ToTable("Drawings");

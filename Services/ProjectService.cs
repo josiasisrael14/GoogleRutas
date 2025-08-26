@@ -24,7 +24,7 @@ public class ProjectService : IProjectService
         {
             var project = await _context.Projects
                           .Include(x => x.CoordinateBs)
-                          .Include(x=>x.ElementProjects)//agrege
+                          .Include(x => x.ElementProjects)//agrege
                           .FirstOrDefaultAsync(x => x.Id == id);
             if (project == null)
             {
@@ -41,15 +41,15 @@ public class ProjectService : IProjectService
                     Lat = Math.Round(Convert.ToDouble(c.Lat), 12),
                     Lng = Math.Round(Convert.ToDouble(c.Lng), 12)
                 }).ToList(),
-                
+
                 PlacedElementse = project.ElementProjects.Select(e => new PlacedElement
                 {
                     Id = e.Id,
                     Lat = e.Lat,
                     Lng = e.Lng,
                     ElementTypeId = e.ElementTypeId,
-                    DrawingId=e.DrawingId
-            }).ToList()
+                    DrawingId = e.DrawingId
+                }).ToList()
 
             };
 
@@ -90,6 +90,7 @@ public class ProjectService : IProjectService
         }
     }
 
+
     public async Task Add(ProjectViewModel viewModel)
     {
         try
@@ -100,7 +101,7 @@ public class ProjectService : IProjectService
             {   //aqui buscamos lo projectos y sus relaciones con coordinate, elementos y buscamos el primer elemento que coincide y es de forma asincrona
                 projects = await _context.Projects
                           .Include(p => p.CoordinateBs)
-                          .Include(p=>p.ElementProjects)
+                          .Include(p => p.ElementProjects)
                           .FirstOrDefaultAsync(p => p.Id == viewModel.Id);//busca el primer elemento que busca una condicion
                                                                           //la accion la realiza de forma asincrona. 
                 if (projects == null) { throw new Exception("proyecto no encontrado"); }
@@ -115,7 +116,7 @@ public class ProjectService : IProjectService
             //recibimos los nuevos valores del proyecto a editar o crear y limpiamos las coordenadas del proyecto para evitar confusiones.
             projects.Name = viewModel.Name;
             projects.CoordinateBs.Clear();
-             //asi una condicion si las coordenas son diferentes de null y si las coordenas traen datos entonces agregaremos las nuevas coordenadas a la tabla CoordinateB
+            //asi una condicion si las coordenas son diferentes de null y si las coordenas traen datos entonces agregaremos las nuevas coordenadas a la tabla CoordinateB
             if (viewModel.Coordinates != null && viewModel.Coordinates.Any())
             {
                 foreach (var coorDto in viewModel.Coordinates)
@@ -186,7 +187,7 @@ public class ProjectService : IProjectService
             //si no es null entonces reovemos ese objeto de la tabla, y actualizamos informacion 
             //si es mayor a cero es porque no hubo error y elimino. 
             _context.Projects.Remove(result);
-             
+
             var changesSave = await _context.SaveChangesAsync();
 
             return changesSave > 0;

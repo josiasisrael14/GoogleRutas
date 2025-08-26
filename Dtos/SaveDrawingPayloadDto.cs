@@ -14,6 +14,12 @@ public class SaveDrawingPayloadDto
     public double Lng { get; set; }
     public int ElementTypeId { get; set; }
 
+    // Datos del dibujo
+
+    public int? DrawingId { get; set; }
+    public string SvgContent { get; set; }
+    public string JsonContent { get; set; }
+
     // Esta propiedad contendrá los datos del dibujo (nodos y conexiones)
     public DrawingDto DrawingData { get; set; }
 

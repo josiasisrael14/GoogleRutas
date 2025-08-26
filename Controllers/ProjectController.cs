@@ -227,108 +227,186 @@ public class ProjectController : Controller
         return Json(new { success = true, redirectUrl = redirectUrl });
     }
 
+    // En tu ProjectController.cs
+
     [HttpPost]
     [Route("Project/Save")]
     public async Task<IActionResult> Save([FromBody] SaveDrawingPayloadDto payload)
     {
-        if (payload == null || !payload.DrawingData.Nodos.Any())
+        // Verificación simple
+        if (payload == null || string.IsNullOrEmpty(payload.JsonContent))
         {
-            return BadRequest("No hay datos para guardar");
+            return BadRequest("No hay datos de dibujo para guardar.");
         }
 
-        // Usaremos un diccionario para mapear los IDs temporales del cliente
-        // a los nuevos IDs generados por la base de datos.
-        var nododIdMap = new Dictionary<string, int>();
-
-        // Iniciamos una transacción para asegurar que todo se guarde o nada se guarde.
-        await using var transaction = await _context.Database.BeginTransactionAsync();
-
+        // Ya no necesitamos diccionarios ni transacciones complejas para esto.
+        // Entity Framework manejará la transacción por nosotros en este caso simple.
         try
         {
-            // 1. Crear el objeto Drawing principal
-            var newPaint = new Drawing();
-            _context.Drawings.Add(newPaint);
-            await _context.SaveChangesAsync();// Guardamos para obtener el ID del nuevo dibujo
 
-            foreach (var nodoDto in payload.DrawingData.Nodos)
+            if (payload.DrawingId > 0)
             {
-                var newNodo = new Nodo
+                var existId = await _context.Drawings.FindAsync(payload.DrawingId);
+
+                if (existId != null)
                 {
-                    Type = nodoDto.Type,
-                    CoordinateX = nodoDto.CoordinateX,
-                    CoordinateY = nodoDto.CoordinateY,
-                    DrawingId = newPaint.Id, // Asociamos al dibujo principal
-                    Rotation = nodoDto.Rotation,
-                    Size = nodoDto.Size,
-                    StrandColorsJson = nodoDto.Type == "cable" ? nodoDto.StrandColorsJson : null
-                    
-                };
+                    existId.JsonContent = payload.JsonContent;
+                    existId.SvgContent = payload.SvgContent;
+                    await _context.SaveChangesAsync();
+                    return Ok(new
+                    {
+                        message = "Dibujo actualizado con éxito.",
+                        success = true,
+                    });
 
-                _context.Nodos.Add(newNodo);
-                await _context.SaveChangesAsync();
-                nododIdMap[nodoDto.ClienteId] = newNodo.Id;
+                }
+                else
+                {
+                    return Ok(new
+                    {
+                        message = "No se encontró el dibujo para actualizar.",
+                        success = false,
+                    });
+                }
+
             }
-
-            foreach (var connDto in payload.DrawingData.Connections)
+            // 1. Crear y guardar el nuevo objeto Drawing con el SVG y el JSON
+            var newDrawing = new Drawing
             {
-                var newConnection = new Connection
-                {
-                    Color = connDto.Color,
-                    Thickness = connDto.Thickness,
-                    JsonIntermediatePoints = connDto.JsonIntermediatePoints,
-                    DrawingId = newPaint.Id,
-                    OrigenNodoId = nododIdMap[connDto.OrigenNodoClienteId],
-                    DestinationNodoId = nododIdMap[connDto.DestinationNodoClienteId],
-                    OrigenPuntoIndex = connDto.OrigenPuntoIndex,
-                    DestinoPuntoIndex = connDto.DestinoPuntoIndex
+                JsonContent = payload.JsonContent,
+                SvgContent = payload.SvgContent
+            };
+            _context.Drawings.Add(newDrawing);
+            await _context.SaveChangesAsync(); // Guardamos para que newDrawing obtenga su ID
 
-                };
-
-                _context.Connections.Add(newConnection);
-            }
-
-            await _context.SaveChangesAsync();// Guardamos todas las conexiones
-
-            var elementProject = await _context.ElementProjects.FirstOrDefaultAsync(ep =>
-                                ep.Id == payload.ElementProjectId);
-            // ep.ProjectId == payload.ProjectId &&
-            // ep.Lat == payload.Lat &&
-            // ep.Lng == payload.Lng);
-
+            // 2. Encontrar el ElementProject y asociarle el ID del nuevo dibujo
+            var elementProject = await _context.ElementProjects.FindAsync(payload.ElementProjectId);
             if (elementProject != null)
             {
-                elementProject.DrawingId = newPaint.Id;
+                elementProject.DrawingId = newDrawing.Id;
                 await _context.SaveChangesAsync();
             }
-
-
-
-            await transaction.CommitAsync();
+            else
+            {
+                // Si no se encuentra el elemento, podríamos revertir, pero por ahora solo avisamos.
+                return NotFound($"No se encontró el ElementProject con ID: {payload.ElementProjectId}");
+            }
 
             return Ok(new
             {
-                message = "",
-                drawingId = newPaint.Id,
+                message = "Dibujo guardado con éxito.",
+                drawingId = newDrawing.Id
             });
-
-
         }
-
         catch (Exception ex)
         {
-
-            await transaction.RollbackAsync();
-
-            return StatusCode(500, "ocurrio un error interno al guardar el dibujo");
-
+            // Loguear el error (ex)
+            return StatusCode(500, "Ocurrió un error interno al guardar el dibujo.");
         }
     }
 
+    // [HttpPost]
+    // [Route("Project/Save")]
+    // public async Task<IActionResult> Save([FromBody] SaveDrawingPayloadDto payload)
+    // {
+    //     if (payload == null || !payload.DrawingData.Nodos.Any())
+    //     {
+    //         return BadRequest("No hay datos para guardar");
+    //     }
 
-    // EN TU ProjectController.cs
+    //     // Usaremos un diccionario para mapear los IDs temporales del cliente
+    //     // a los nuevos IDs generados por la base de datos.
+    //     var nododIdMap = new Dictionary<string, int>();
+
+    //     // Iniciamos una transacción para asegurar que todo se guarde o nada se guarde.
+    //     await using var transaction = await _context.Database.BeginTransactionAsync();
+
+    //     try
+    //     {
+    //         // 1. Crear el objeto Drawing principal
+    //         var newPaint = new Drawing();
+    //         _context.Drawings.Add(newPaint);
+    //         await _context.SaveChangesAsync();// Guardamos para obtener el ID del nuevo dibujo
+
+    //         foreach (var nodoDto in payload.DrawingData.Nodos)
+    //         {
+    //             var newNodo = new Nodo
+    //             {
+    //                 Type = nodoDto.Type,
+    //                 CoordinateX = nodoDto.CoordinateX,
+    //                 CoordinateY = nodoDto.CoordinateY,
+    //                 DrawingId = newPaint.Id, // Asociamos al dibujo principal
+    //                 Rotation = nodoDto.Rotation,
+    //                 Size = nodoDto.Size,
+    //                 StrandColorsJson = nodoDto.Type == "cable" ? nodoDto.StrandColorsJson : null
+
+    //             };
+
+    //             _context.Nodos.Add(newNodo);
+    //             await _context.SaveChangesAsync();
+    //             nododIdMap[nodoDto.ClienteId] = newNodo.Id;
+    //         }
+
+    //         foreach (var connDto in payload.DrawingData.Connections)
+    //         {
+    //             var newConnection = new Connection
+    //             {
+    //                 Color = connDto.Color,
+    //                 Thickness = connDto.Thickness,
+    //                 JsonIntermediatePoints = connDto.JsonIntermediatePoints,
+    //                 DrawingId = newPaint.Id,
+    //                 OrigenNodoId = nododIdMap[connDto.OrigenNodoClienteId],
+    //                 DestinationNodoId = nododIdMap[connDto.DestinationNodoClienteId],
+    //                 OrigenPuntoIndex = connDto.OrigenPuntoIndex,
+    //                 DestinoPuntoIndex = connDto.DestinoPuntoIndex
+
+    //             };
+
+    //             _context.Connections.Add(newConnection);
+    //         }
+
+    //         await _context.SaveChangesAsync();// Guardamos todas las conexiones
+
+    //         var elementProject = await _context.ElementProjects.FirstOrDefaultAsync(ep =>
+    //                             ep.Id == payload.ElementProjectId);
+    //         // ep.ProjectId == payload.ProjectId &&
+    //         // ep.Lat == payload.Lat &&
+    //         // ep.Lng == payload.Lng);
+
+    //         if (elementProject != null)
+    //         {
+    //             elementProject.DrawingId = newPaint.Id;
+    //             await _context.SaveChangesAsync();
+    //         }
+
+
+
+    //         await transaction.CommitAsync();
+
+    //         return Ok(new
+    //         {
+    //             message = "",
+    //             drawingId = newPaint.Id,
+    //         });
+
+
+    //     }
+
+    //     catch (Exception ex)
+    //     {
+
+    //         await transaction.RollbackAsync();
+
+    //         return StatusCode(500, "ocurrio un error interno al guardar el dibujo");
+
+    //     }
+    // }
+
+
+    // En tu ProjectController.cs
 
     [HttpGet]
-    [Route("Project/GetDrawing/{drawingId}")] // Una ruta clara para obtener un dibujo por su ID
+    [Route("Project/GetDrawing/{drawingId}")]
     public async Task<IActionResult> GetDrawing(int drawingId)
     {
         if (drawingId <= 0)
@@ -338,51 +416,16 @@ public class ProjectController : Controller
 
         try
         {
-            // Buscamos el dibujo y usamos .Include() para cargar también sus Nodos y Connections relacionados.
-            var drawing = await _context.Drawings
-                .Include(d => d.Nodos)
-                .Include(d => d.Connections)
-                .FirstOrDefaultAsync(d => d.Id == drawingId);
+            var drawing = await _context.Drawings.FindAsync(drawingId);
 
-            if (drawing == null)
+            if (drawing == null || string.IsNullOrEmpty(drawing.JsonContent))
             {
-                return NotFound("No se encontró ningún dibujo con ese ID.");
+                return NotFound("No se encontró ningún dibujo editable con ese ID.");
             }
 
-            // Creamos un DTO para enviar los datos de forma limpia. Podemos reutilizar el que ya tenemos.
-            var drawingDto = new DrawingDto
-            {
-                Nodos = drawing.Nodos.Select(n => new NodoDto
-                {
-                    // NOTA: Enviamos el ID real del nodo por si lo necesitas. El ClienteId solo se usa para guardar.
-                    ClienteId = "db_nodo_" + n.Id, // Creamos un ID único basado en el ID de la BD
-                    Type = n.Type,
-                    CoordinateX = n.CoordinateX,
-                    CoordinateY = n.CoordinateY,
-                    Rotation = n.Rotation,
-                    Size = n.Size,
-                    StrandColorsJson = n.StrandColorsJson
-                    
-                    // TypeSplitter se puede añadir si es necesario
-                }).ToList(),
-
-                Connections = drawing.Connections.Select(c => new ConnectionDto
-                {
-                    Color = c.Color,
-                    Thickness = c.Thickness ?? 2, // Usamos un valor por defecto si es nulo
-                                                  // Buscamos los ClienteId que acabamos de crear para los nodos de origen y destino
-                    OrigenNodoClienteId = "db_nodo_" + c.OrigenNodoId,
-                    DestinationNodoClienteId = "db_nodo_" + c.DestinationNodoId,
-                    JsonIntermediatePoints = c.JsonIntermediatePoints,
-                    OrigenPuntoIndex = c.OrigenPuntoIndex,
-                     DestinoPuntoIndex = c.DestinoPuntoIndex
-                }).ToList()
-            };
-
-        System.Console.WriteLine("DEBUG C#: " + System.Text.Json.JsonSerializer.Serialize(drawingDto, new JsonSerializerOptions { WriteIndented = true }));
-
-
-            return Ok(drawingDto); // Enviamos los datos del dibujo como respuesta JSON
+            // Devolvemos el contenido JSON directamente.
+            // El frontend lo recibirá como un string y necesitará usar JSON.parse().
+            return Content(drawing.JsonContent, "application/json");
         }
         catch (Exception ex)
         {
@@ -390,6 +433,73 @@ public class ProjectController : Controller
             return StatusCode(500, "Ocurrió un error interno al obtener los datos del dibujo.");
         }
     }
+
+
+    // EN TU ProjectController.cs
+
+    // [HttpGet]
+    // [Route("Project/GetDrawing/{drawingId}")] // Una ruta clara para obtener un dibujo por su ID
+    // public async Task<IActionResult> GetDrawing(int drawingId)
+    // {
+    //     if (drawingId <= 0)
+    //     {
+    //         return BadRequest("ID de dibujo no válido.");
+    //     }
+
+    //     try
+    //     {
+    //         // Buscamos el dibujo y usamos .Include() para cargar también sus Nodos y Connections relacionados.
+    //         var drawing = await _context.Drawings
+    //             .Include(d => d.Nodos)
+    //             .Include(d => d.Connections)
+    //             .FirstOrDefaultAsync(d => d.Id == drawingId);
+
+    //         if (drawing == null)
+    //         {
+    //             return NotFound("No se encontró ningún dibujo con ese ID.");
+    //         }
+
+    //         // Creamos un DTO para enviar los datos de forma limpia. Podemos reutilizar el que ya tenemos.
+    //         var drawingDto = new DrawingDto
+    //         {
+    //             Nodos = drawing.Nodos.Select(n => new NodoDto
+    //             {
+    //                 // NOTA: Enviamos el ID real del nodo por si lo necesitas. El ClienteId solo se usa para guardar.
+    //                 ClienteId = "db_nodo_" + n.Id, // Creamos un ID único basado en el ID de la BD
+    //                 Type = n.Type,
+    //                 CoordinateX = n.CoordinateX,
+    //                 CoordinateY = n.CoordinateY,
+    //                 Rotation = n.Rotation,
+    //                 Size = n.Size,
+    //                 StrandColorsJson = n.StrandColorsJson
+
+    //                 // TypeSplitter se puede añadir si es necesario
+    //             }).ToList(),
+
+    //             Connections = drawing.Connections.Select(c => new ConnectionDto
+    //             {
+    //                 Color = c.Color,
+    //                 Thickness = c.Thickness ?? 2, // Usamos un valor por defecto si es nulo
+    //                                               // Buscamos los ClienteId que acabamos de crear para los nodos de origen y destino
+    //                 OrigenNodoClienteId = "db_nodo_" + c.OrigenNodoId,
+    //                 DestinationNodoClienteId = "db_nodo_" + c.DestinationNodoId,
+    //                 JsonIntermediatePoints = c.JsonIntermediatePoints,
+    //                 OrigenPuntoIndex = c.OrigenPuntoIndex,
+    //                 DestinoPuntoIndex = c.DestinoPuntoIndex
+    //             }).ToList()
+    //         };
+
+    //         System.Console.WriteLine("DEBUG C#: " + System.Text.Json.JsonSerializer.Serialize(drawingDto, new JsonSerializerOptions { WriteIndented = true }));
+
+
+    //         return Ok(drawingDto); // Enviamos los datos del dibujo como respuesta JSON
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         // Loguear el error (ex)
+    //         return StatusCode(500, "Ocurrió un error interno al obtener los datos del dibujo.");
+    //     }
+    // }
 
 
     // [HttpPost]
