@@ -5,7 +5,7 @@ using GoogleRuta.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using GoogleRuta.ViewModels;
 using GoogleRuta.Data;
-using Microsoft.EntityFrameworkCore;
+using SixLabors.ImageSharp;
 
 namespace GoogleRuta.Controllers;
 
@@ -65,66 +65,101 @@ public class ProjectController : Controller
         }
     }
 
+    // [HttpPost]
+    // //[Route("ProjectController/Coordinate")]//[FromBody] DrawnData data
+    // public async Task<IActionResult> Coordinate([FromBody] DrawnData data)
+    // {   //se modifico == pos is null
+    //     if (data is null)
+    //     {
+    //         return BadRequest("No se recibieron datos o los datos son inválidos.");
+    //     }
+
+    //     _logger.LogInformation("Coordenadas recibidas");
+    //     //var data = JsonSerializer.Deserialize<DrawnData>(jsonData);
+    //     if (data.Coordinates != null && data.Coordinates.Any())
+    //     {
+    //         Console.WriteLine("Coordenadas recibidas");
+
+    //         var proccessedCoordinates = new List<Object>();
+
+    //         foreach (var coorPair in data.Coordinates)
+    //         {
+    //             if (coorPair.Count == 2)
+    //             {
+    //                 double lat = coorPair[0];
+    //                 double lng = coorPair[1];
+
+    //                 proccessedCoordinates.Add(new { lat = lat, lng = lng });
+
+    //                 Console.WriteLine($"latitud :{lat}, longitud :{lng}");
+    //             }
+    //         }
+    //         TempData["projectId"] = data.Id;
+    //         TempData["Name"] = data.Name;
+    //         TempData["ProcessedCoordinates"] = JsonSerializer.Serialize(proccessedCoordinates);
+    //         TempData["SuccessMessage"] = "Coordenadas procesadas correctamente";
+
+    //         if (data.PlacedElements != null && data.PlacedElements.Any())
+    //         {
+    //             Console.WriteLine("Coordenadas de los elementos recibidas");
+    //             var ProcessedCoordinatesElements = new List<object>();
+    //             foreach (var element in data.PlacedElements)
+    //             {
+    //                 ProcessedCoordinatesElements.Add(new
+    //                 {
+    //                     lat = element.Lat,
+    //                     lng = element.Lng,
+    //                     elementTypeId = element.ElementTypeId
+    //                 });
+    //             }
+    //             TempData["PlacedElements"] = JsonSerializer.Serialize(ProcessedCoordinatesElements);
+    //         }
+    //     }
+    //     else
+    //     {
+    //         Console.WriteLine("No se recibieron coordenadas.");
+    //         TempData["ErrorMessage"] = "No se recibieron coordenadas válidas";
+    //     }
+
+    //     //return RedirectToAction("Index","Project");
+    //     return Ok(new { redirectToUrl = Url.Action("Index", "Project") });
+
+
+    // }
+
     [HttpPost]
-    //[Route("ProjectController/Coordinate")]//[FromBody] DrawnData data
-    public async Task<IActionResult> Coordinate([FromBody] DrawnData data)
+    public IActionResult Coordinate([FromBody] DrawnData data)
     {
-        if (data == null)
+        if (data is null)
         {
-            return BadRequest("No se recibieron datos o los datos son inválidos.");
+            // En este flujo, simplemente redirigimos incluso si no hay datos.
+            return Ok(new { redirectToUrl = Url.Action("Index", "Project") });
         }
 
-        _logger.LogInformation("Coordenadas recibidas");
-        //var data = JsonSerializer.Deserialize<DrawnData>(jsonData);
+        // Guardamos los datos recibidos en TempData para que la siguiente petición (Index) los pueda leer.
+        TempData["ProjectId"] = data.Id;
+        TempData["Name"] = data.Name;
+
+        // Guardamos los segmentos si existen
+        if (data.Segments != null && data.Segments.Any())
+        {
+            TempData["SavedSegments"] = JsonSerializer.Serialize(data.Segments);
+        }
+
+        // Guardamos las coordenadas de polígono si existen (por retrocompatibilidad)
         if (data.Coordinates != null && data.Coordinates.Any())
         {
-            Console.WriteLine("Coordenadas recibidas");
-
-            var proccessedCoordinates = new List<Object>();
-
-            foreach (var coorPair in data.Coordinates)
-            {
-                if (coorPair.Count == 2)
-                {
-                    double lat = coorPair[0];
-                    double lng = coorPair[1];
-
-                    proccessedCoordinates.Add(new { lat = lat, lng = lng });
-
-                    Console.WriteLine($"latitud :{lat}, longitud :{lng}");
-                }
-            }
-            TempData["projectId"] = data.Id;
-            TempData["Name"] = data.Name;
-            TempData["ProcessedCoordinates"] = JsonSerializer.Serialize(proccessedCoordinates);
-            TempData["SuccessMessage"] = "Coordenadas procesadas correctamente";
-
-            if (data.PlacedElements != null && data.PlacedElements.Any())
-            {
-                Console.WriteLine("Coordenadas de los elementos recibidas");
-                var ProcessedCoordinatesElements = new List<object>();
-                foreach (var element in data.PlacedElements)
-                {
-                    ProcessedCoordinatesElements.Add(new
-                    {
-                        lat = element.Lat,
-                        lng = element.Lng,
-                        elementTypeId = element.ElementTypeId
-                    });
-                }
-                TempData["PlacedElements"] = JsonSerializer.Serialize(ProcessedCoordinatesElements);
-            }
+            TempData["SavedCoordinates"] = JsonSerializer.Serialize(data.Coordinates);
         }
-        else
+
+        // Guardamos los elementos colocados si existen
+        if (data.PlacedElements != null && data.PlacedElements.Any())
         {
-            Console.WriteLine("No se recibieron coordenadas.");
-            TempData["ErrorMessage"] = "No se recibieron coordenadas válidas";
+            TempData["PlacedElements"] = JsonSerializer.Serialize(data.PlacedElements);
         }
 
-        //return RedirectToAction("Index","Project");
+        // Devolvemos el JSON que le dice al frontend a dónde redirigir.
         return Ok(new { redirectToUrl = Url.Action("Index", "Project") });
-
-
     }
     public async Task<IActionResult> Diseño(double? lat, double? lng)
     {
@@ -218,6 +253,7 @@ public class ProjectController : Controller
         TempData["ProcessedCoordinatess"] = JsonSerializer.Serialize(coordenadas.Coordinates);
         TempData["ProjectId"] = coordenadas.ProjectId;
         TempData["Name"] = coordenadas.Name;
+        TempData["ExistingSegments"] = JsonSerializer.Serialize(coordenadas.Segments ?? new List<PolylineSegmentDto>());
 
         if (coordenadas.PlacedElements != null)
         {
@@ -306,101 +342,138 @@ public class ProjectController : Controller
     }
 
     // [HttpPost]
-    // [Route("Project/Save")]
-    // public async Task<IActionResult> Save([FromBody] SaveDrawingPayloadDto payload)
+    // public async Task<IActionResult> SaveImage([FromBody] ImagePayloadDto payload)
     // {
-    //     if (payload == null || !payload.DrawingData.Nodos.Any())
+    //     //valido si la variable payload es null o si la propiedad base64Image es nula o una cadena vacia
+    //     if (payload == null || string.IsNullOrEmpty(payload.Base64Image))
     //     {
-    //         return BadRequest("No hay datos para guardar");
+    //         return BadRequest("No se proporcionó una imagen válida.");
     //     }
-
-    //     // Usaremos un diccionario para mapear los IDs temporales del cliente
-    //     // a los nuevos IDs generados por la base de datos.
-    //     var nododIdMap = new Dictionary<string, int>();
-
-    //     // Iniciamos una transacción para asegurar que todo se guarde o nada se guarde.
-    //     await using var transaction = await _context.Database.BeginTransactionAsync();
 
     //     try
     //     {
-    //         // 1. Crear el objeto Drawing principal
-    //         var newPaint = new Drawing();
-    //         _context.Drawings.Add(newPaint);
-    //         await _context.SaveChangesAsync();// Guardamos para obtener el ID del nuevo dibujo
-
-    //         foreach (var nodoDto in payload.DrawingData.Nodos)
+    //         // Buscar el ElementProject por su ID, porque si existe entonces actualizo la imagen
+    //         var elementProject = await _context.ElementProjects.FindAsync(payload.ElementProjectId);
+    //         if (elementProject == null)
     //         {
-    //             var newNodo = new Nodo
-    //             {
-    //                 Type = nodoDto.Type,
-    //                 CoordinateX = nodoDto.CoordinateX,
-    //                 CoordinateY = nodoDto.CoordinateY,
-    //                 DrawingId = newPaint.Id, // Asociamos al dibujo principal
-    //                 Rotation = nodoDto.Rotation,
-    //                 Size = nodoDto.Size,
-    //                 StrandColorsJson = nodoDto.Type == "cable" ? nodoDto.StrandColorsJson : null
-
-    //             };
-
-    //             _context.Nodos.Add(newNodo);
-    //             await _context.SaveChangesAsync();
-    //             nododIdMap[nodoDto.ClienteId] = newNodo.Id;
+    //             return NotFound($"No se encontró el ElementProject con ID: {payload.ElementProjectId}");
     //         }
 
-    //         foreach (var connDto in payload.DrawingData.Connections)
-    //         {
-    //             var newConnection = new Connection
-    //             {
-    //                 Color = connDto.Color,
-    //                 Thickness = connDto.Thickness,
-    //                 JsonIntermediatePoints = connDto.JsonIntermediatePoints,
-    //                 DrawingId = newPaint.Id,
-    //                 OrigenNodoId = nododIdMap[connDto.OrigenNodoClienteId],
-    //                 DestinationNodoId = nododIdMap[connDto.DestinationNodoClienteId],
-    //                 OrigenPuntoIndex = connDto.OrigenPuntoIndex,
-    //                 DestinoPuntoIndex = connDto.DestinoPuntoIndex
+    //         // Convertir la cadena Base64 a un arreglo de bytes
+    //         byte[] imageBytes = Convert.FromBase64String(payload.Base64Image);
 
-    //             };
+    //         // Asignar la imagen al ElementProject
+    //         // Suponiendo que tienes una propiedad Image de tipo byte[] en ElementProject
+    //         elementProject.Image = imageBytes;
 
-    //             _context.Connections.Add(newConnection);
-    //         }
-
-    //         await _context.SaveChangesAsync();// Guardamos todas las conexiones
-
-    //         var elementProject = await _context.ElementProjects.FirstOrDefaultAsync(ep =>
-    //                             ep.Id == payload.ElementProjectId);
-    //         // ep.ProjectId == payload.ProjectId &&
-    //         // ep.Lat == payload.Lat &&
-    //         // ep.Lng == payload.Lng);
-
-    //         if (elementProject != null)
-    //         {
-    //             elementProject.DrawingId = newPaint.Id;
-    //             await _context.SaveChangesAsync();
-    //         }
-
-
-
-    //         await transaction.CommitAsync();
+    //         // Guardar los cambios en la base de datos
+    //         await _context.SaveChangesAsync();
 
     //         return Ok(new
     //         {
-    //             message = "",
-    //             drawingId = newPaint.Id,
+    //             message = "Imagen guardada correctamente.",
+    //             redirectToUrl = Url.Action("Index", "Project")
     //         });
-
-
     //     }
-
+    //     catch (FormatException)
+    //     {
+    //         return BadRequest("El formato de la imagen Base64 es inválido.");
+    //     }
     //     catch (Exception ex)
     //     {
-
-    //         await transaction.RollbackAsync();
-
-    //         return StatusCode(500, "ocurrio un error interno al guardar el dibujo");
-
+    //         // Loguear el error (ex)
+    //         return StatusCode(500, "Ocurrió un error interno al guardar la imagen.");
     //     }
     // }
+
+    [HttpPost]
+    public async Task<IActionResult> SaveImage([FromBody] ImagePayloadDto payload)
+    {
+        if (payload == null || string.IsNullOrEmpty(payload.Base64Image))
+        {
+            return BadRequest("No se proporcionó una imagen válida.");
+        }
+
+        try
+        {
+            // Convertir la cadena Base64 a un arreglo de bytes (esto no cambia)
+            byte[] imageBytes = Convert.FromBase64String(payload.Base64Image);
+
+            // ✅ PASO 2: ¡AQUÍ ESTÁ LA VALIDACIÓN!
+            try
+            {
+                // Usamos un MemoryStream para que ImageSharp pueda leer los bytes como si fuera un archivo.
+                using (var stream = new MemoryStream(imageBytes))
+                {
+                    // Image.Identify() es muy rápido. Solo lee la cabecera del archivo para
+                    // identificar el formato, sin decodificar toda la imagen.
+                    // Si esto no lanza una excepción, es una imagen que ImageSharp reconoce (JPG, PNG, GIF, etc.).
+                    var imageInfo = Image.Identify(stream);
+                    if (imageInfo == null)
+                    {
+                        // Doble chequeo por si acaso, aunque Identify lanzaría excepción antes.
+                        return BadRequest("El archivo proporcionado no parece ser una imagen válida.");
+                    }
+                }
+            }
+            catch (UnknownImageFormatException)
+            {
+                // Esta excepción se lanza si los datos no corresponden a ningún formato de imagen conocido.
+                return BadRequest("El formato del archivo es desconocido o no es una imagen válida.");
+            }
+            catch // Captura otras posibles excepciones de ImageSharp
+            {
+                return BadRequest("El archivo proporcionado está corrupto o no es una imagen válida.");
+            }
+            // ✅ FIN DE LA VALIDACIÓN
+
+            // Si llegamos aquí, la imagen es válida. Procedemos a buscar y guardar.
+            var elementProject = await _context.ElementProjects.FindAsync(payload.ElementProjectId);
+            if (elementProject == null)
+            {
+                return NotFound($"No se encontró el ElementProject con ID: {payload.ElementProjectId}");
+            }
+
+            elementProject.Image = imageBytes;
+            await _context.SaveChangesAsync();
+        
+
+            return Ok(new
+            {
+                message = "Imagen guardada correctamente.",
+                redirectToUrl = Url.Action("Index", "Project", new { id = elementProject.ProjectId }) // Asumiendo que quieres volver al diseño del proyecto padre
+            });
+        }
+        catch (FormatException)
+        {
+            return BadRequest("El formato de la imagen Base64 es inválido.");
+        }
+        catch (Exception ex)
+        {
+            // Loguear el error (ex)
+            return StatusCode(500, "Ocurrió un error interno al guardar la imagen.");
+        }
+    }
+
+    [HttpGet]
+    [Route("Project/GetImage/{elementProjectId}")]
+    public async Task<IActionResult> GetImage(int elementProjectId)
+    {
+        if (elementProjectId <= 0)
+        {
+            return BadRequest("ID de ElementProject no válido.");
+        }
+
+        var elementProject = await _context.ElementProjects.FindAsync(elementProjectId);
+        if (elementProject == null || elementProject.Image == null || elementProject.Image.Length == 0)
+        {
+            return NotFound("No se encontró ninguna imagen para el ElementProject especificado.");
+        }
+        // Devolver la imagen como un archivo
+        return File(elementProject.Image, "image/png"); // Ajusta el tipo MIME según el formato de la imagen
+
+
+    }
 
 
     // En tu ProjectController.cs
@@ -521,7 +594,7 @@ public class ProjectController : Controller
         public string Name { get; set; }
         public List<CoordinateDto> Coordinates { get; set; }
         public List<PlacedElement>? PlacedElements { get; set; }
-
+        public List<PolylineSegmentDto>? Segments { get; set; }
     }
 
 

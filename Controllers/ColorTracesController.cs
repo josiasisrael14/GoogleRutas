@@ -56,8 +56,8 @@ namespace GoogleRuta.Controllers
             try
             {
                 var colorTrace = await _service.GetById(id);
-
-                if (colorTrace == null)
+                 //se modifico de == a is null
+                if (colorTrace is null)
                 {
                     return NotFound(new { success = false, message = "No se encontro" });
                 }

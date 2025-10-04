@@ -1,0 +1,7 @@
+# Ignorar archivos generados dinámicamente con GUIDs en la carpeta img
+wwwroot/img/*.svg
+
+# Reglas de compilación estándar (que ya tienes)
+node_modules/
+[Bb]in/
+[Oo]bj/

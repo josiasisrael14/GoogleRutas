@@ -9,5 +9,6 @@ namespace GoogleRuta.ViewModels
     {
         public double Lat { get; set; }
         public double Lng { get; set; }
+        //public string Color { get; set; }
     }
 }

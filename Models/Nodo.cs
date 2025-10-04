@@ -24,11 +24,12 @@ public class Nodo
     public double Rotation { get; set; }
     public int? Size { get; set; }
 
-     [Column(TypeName = "TEXT")]
-     public string? StrandColorsJson { get; set; }
-     
+    [Column(TypeName = "TEXT")]
+    public string? StrandColorsJson { get; set; }
+
     public int DrawingId { get; set; }
     [ForeignKey("DrawingId")]
     public virtual Drawing Drawing { get; set; }
+
 
 }

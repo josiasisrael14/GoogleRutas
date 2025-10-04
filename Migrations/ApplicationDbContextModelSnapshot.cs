@@ -127,6 +127,10 @@ namespace GoogleRuta.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Color")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<double>("Lat")
                         .HasColumnType("float");
 
@@ -136,11 +140,35 @@ namespace GoogleRuta.Migrations
                     b.Property<int>("ProjectId")
                         .HasColumnType("int");
 
+                    b.Property<string>("SegmentId")
+                        .HasColumnType("nvarchar(max)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ProjectId");
 
                     b.ToTable("CoordinateBs");
+                });
+
+            modelBuilder.Entity("GoogleRuta.Models.Diagram", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("JsonContent")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Diagrams");
                 });
 
             modelBuilder.Entity("GoogleRuta.Models.Drawing", b =>
@@ -179,6 +207,9 @@ namespace GoogleRuta.Migrations
                     b.Property<int?>("ElementTypeId")
                         .HasColumnType("int");
 
+                    b.Property<byte[]>("Image")
+                        .HasColumnType("varbinary(max)");
+
                     b.Property<double>("Lat")
                         .HasColumnType("float");
 
@@ -206,6 +237,12 @@ namespace GoogleRuta.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("IconColor")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("IconoSvgContent")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("IconoUrl")
                         .HasColumnType("nvarchar(max)");
@@ -273,6 +310,83 @@ namespace GoogleRuta.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Projects");
+                });
+
+            modelBuilder.Entity("GoogleRuta.Models.Router", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("IPAddress")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Routers");
+                });
+
+            modelBuilder.Entity("GoogleRuta.Models.SwitchPort", b =>
+                {
+                    b.Property<int>("SwitchsId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("GroupNumber")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PortNumber")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Id")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RouterId")
+                        .HasColumnType("int");
+
+                    b.HasKey("SwitchsId", "GroupNumber", "PortNumber");
+
+                    b.HasIndex("RouterId")
+                        .IsUnique();
+
+                    b.ToTable("SwitchPorts");
+                });
+
+            modelBuilder.Entity("GoogleRuta.Models.Switchs", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("GroupCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("PortsPerGroup")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TotalPorts")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Switchs");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -561,6 +675,23 @@ namespace GoogleRuta.Migrations
                         .IsRequired();
 
                     b.Navigation("Drawing");
+                });
+
+            modelBuilder.Entity("GoogleRuta.Models.SwitchPort", b =>
+                {
+                    b.HasOne("GoogleRuta.Models.Router", "Router")
+                        .WithMany()
+                        .HasForeignKey("RouterId");
+
+                    b.HasOne("GoogleRuta.Models.Switchs", "Switchs")
+                        .WithMany()
+                        .HasForeignKey("SwitchsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Router");
+
+                    b.Navigation("Switchs");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>

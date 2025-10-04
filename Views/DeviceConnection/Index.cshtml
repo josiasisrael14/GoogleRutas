@@ -1,0 +1,278 @@
+@model GoogleRuta.Views.ViewModel.DiagramaViewModel
+@using System.Text.Json;
+
+@{
+    ViewData["Title"] = "Diagrama de Red";
+}
+
+<h1>@ViewData["Title"]</h1>
+
+<div class="mb-3">
+    <button id="add-block-btn" class="btn btn-secondary">Añadir Bloque</button>
+    <button id="save-diagram-btn" class="btn btn-primary">Guardar Diagrama</button>
+</div>
+
+<div id="konva-container" style="border: 1px solid #ccc; background-color: #f9f9f9; height: 80vh;"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/konva@9/konva.min.js"></script>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+
+            // ===============================================================
+            // 1. OBTENEMOS LOS DATOS DE C#
+            // ===============================================================
+            const latestRoutersFromDB = @Html.Raw(JsonSerializer.Serialize(Model.Routers));
+            const latestSwitchesFromDB = @Html.Raw(JsonSerializer.Serialize(Model.Switches));
+            const diagramJson = @Html.Raw(Model.DiagramJson);
+            const connectionsFromDB = @Html.Raw(JsonSerializer.Serialize(Model.Connections));
+
+            let stage, layer, transformer;
+            let blinkingPortInterval = null;
+
+            // ===============================================================
+            // 2. LÓGICA PRINCIPAL: CARGAR, REPARAR Y SINCRONIZAR
+            // ===============================================================
+            if (diagramJson && diagramJson.attrs) {
+                stage = Konva.Node.create(diagramJson, 'konva-container');
+            } else {
+                const container = document.getElementById('konva-container');
+                stage = new Konva.Stage({
+                    container: 'konva-container',
+                    width: container.clientWidth,
+                    height: container.clientHeight
+                });
+            }
+
+            layer = stage.findOne('Layer') || new Konva.Layer();
+            if (!stage.findOne('Layer')) {
+                stage.add(layer);
+            }
+            layer.clipFunc(null);
+
+            // Bloque de reparación para diagramas antiguos. Esto es robusto y debe quedarse.
+            stage.find('.switch').forEach(switchGroup => {
+                const switchId = parseInt(switchGroup.id().split('-')[1]);
+                if (!switchId) return;
+
+                const allRects = switchGroup.find('Rect');
+                allRects.forEach((rectNode, index) => {
+                    if (index === 0) return; // Omitir el cuerpo del switch
+                    const portNumber = index;
+                    if (!rectNode.id() || !rectNode.id().includes('-port-')) {
+                        rectNode.id(`switch-${switchId}-port-${portNumber}`);
+                    }
+                    if (!rectNode.hasName('port')) {
+                        rectNode.name('port');
+                    }
+                });
+            });
+
+            stage.find('Transformer').forEach(tr => tr.destroy());
+            transformer = new Konva.Transformer({
+                borderStroke: '#007bff', anchorStroke: '#007bff', anchorFill: '#ffffff',
+                anchorSize: 8, borderDash: [4, 4],
+                boundBoxFunc: (oldBox, newBox) => (newBox.width < 200 || newBox.height < 150) ? oldBox : newBox,
+            });
+            layer.add(transformer);
+
+            setupZoomAndPan(stage);
+            syncAndDrawNewDevices();
+            reconnectEventHandlers();
+
+            // ===============================================================
+            // 3. FUNCIONES DE DIBUJO Y SINCRONIZACIÓN (Sin Cambios)
+            // ===============================================================
+            function syncAndDrawNewDevices() {
+                const validRouterIds = new Set(latestRoutersFromDB.map(r => r.Id));
+                stage.find('.router').forEach(node => {
+                    if (!validRouterIds.has(parseInt(node.id().split('-')[1]))) { node.destroy(); }
+                });
+                const validSwitchIds = new Set(latestSwitchesFromDB.map(s => s.Id));
+                stage.find('.switch').forEach(node => {
+                    if (!validSwitchIds.has(parseInt(node.id().split('-')[1]))) { node.destroy(); }
+                });
+                const drawnRouterIds = new Set(stage.find('.router').map(n => parseInt(n.id().split('-')[1])));
+                const newRouters = latestRoutersFromDB.filter(r => !drawnRouterIds.has(r.Id));
+                const drawnSwitchIds = new Set(stage.find('.switch').map(n => parseInt(n.id().split('-')[1])));
+                const newSwitches = latestSwitchesFromDB.filter(s => !drawnSwitchIds.has(s.Id));
+                if (newRouters.length > 0) {
+                    let nextRouterY = 50;
+                    newRouters.forEach(router => {
+                        while (stage.getIntersection({ x: 50, y: nextRouterY })) { nextRouterY += 100; }
+                        drawRouter(router, 50, nextRouterY);
+                    });
+                }
+                if (newSwitches.length > 0) {
+                    let nextSwitchY = 50;
+                    newSwitches.forEach(sw => {
+                        const portSize = 14, portPadding = 7, portsPerRow = sw.PortsPerGroup;
+                        const switchWidth = (portSize + portPadding) * portsPerRow + portPadding;
+                        const posX = stage.width() - switchWidth - 50;
+                        while (stage.getIntersection({ x: posX, y: nextSwitchY })) { nextSwitchY += 120; }
+                        drawSwitch(sw, posX, nextSwitchY);
+                    });
+                }
+            }
+            function drawRouter(router, x, y) {
+                const group = new Konva.Group({ x, y, draggable: true, id: `router-${router.Id}`, name: 'router' });
+                const body = new Konva.Rect({ width: 150, height: 40, fill: '#007bff', cornerRadius: 5, stroke: '#0056b3', strokeWidth: 2 });
+                const nameText = new Konva.Text({ text: router.Name.toUpperCase(), fontSize: 14, fontFamily: 'Arial', fill: 'white', width: 150, padding: 10, align: 'center' });
+                const ipText = new Konva.Text({ y: 45, text: router.IPAddress, fontSize: 12, fontFamily: 'Courier New', fill: '#333' });
+                group.add(body, nameText, ipText);
+                layer.add(group);
+                return group;
+            }
+            function drawSwitch(sw, x, y) {
+                const group = new Konva.Group({ x, y, draggable: true, id: `switch-${sw.Id}`, name: 'switch' });
+                const portSize = 14, portPadding = 7, portsPerRow = sw.PortsPerGroup, totalPorts = sw.TotalPorts, groupCount = sw.GroupCount;
+                const switchWidth = (portSize + portPadding) * portsPerRow + portPadding;
+                const switchHeight = (portSize + portPadding) * groupCount + 40;
+                const body = new Konva.Rect({ width: switchWidth, height: switchHeight, fill: '#28a745', cornerRadius: 3, stroke: '#1e7e34', strokeWidth: 2 });
+                const nameText = new Konva.Text({ text: sw.Name.toUpperCase(), fontSize: 14, fontFamily: 'Arial', fill: 'white', padding: 5 });
+                group.add(body, nameText);
+                for (let i = 0; i < totalPorts; i++) {
+                    const portNumber = i + 1;
+                    const groupIndex = Math.floor(i / portsPerRow), portIndexInGroup = i % portsPerRow;
+                    const portX = portPadding + portIndexInGroup * (portSize + portPadding);
+                    const portY = 35 + groupIndex * (portSize + portPadding);
+                    const port = new Konva.Rect({ x: portX, y: portY, width: portSize, height: portSize, fill: 'black', stroke: '#444', strokeWidth: 1, cornerRadius: 2, id: `switch-${sw.Id}-port-${portNumber}`, name: 'port' });
+                    group.add(port);
+                    const portText = new Konva.Text({ x: portX, y: portY, text: portNumber.toString(), fontSize: 9, fontFamily: 'Arial', fill: 'white', width: portSize, height: portSize, align: 'center', verticalAlign: 'middle', listening: false });
+                    group.add(portText);
+                }
+                layer.add(group);
+                return group;
+            }
+            function stopBlinking() {
+                if (blinkingPortInterval) {
+                    clearInterval(blinkingPortInterval.intervalId);
+                    blinkingPortInterval.node.fill(blinkingPortInterval.originalFill);
+                    blinkingPortInterval = null;
+                    layer.draw();
+                }
+            }
+            function highlightPort(switchId, portNumber) {
+                stopBlinking();
+                if (!switchId || !portNumber) return;
+                const portId = `switch-${switchId}-port-${portNumber}`;
+                const portNode = stage.findOne(`#${portId}`);
+                if (portNode) {
+                    const originalFill = portNode.fill();
+                    let isHighlighted = false;
+                    const intervalId = setInterval(() => {
+                        portNode.fill(isHighlighted ? originalFill : 'yellow');
+                        isHighlighted = !isHighlighted;
+                        layer.draw();
+                    }, 400);
+                    blinkingPortInterval = { node: portNode, intervalId: intervalId, originalFill: originalFill };
+                } else {
+                    console.warn(`No se encontró el puerto con ID: ${portId}`);
+                }
+            }
+            function drawBlock(x, y, width, height, name, id) {
+                const group = new Konva.Group({ x, y, width, height, draggable: true, id: id || `block-${Date.now()}`, name: 'blockContainer', shadowColor: 'black', shadowBlur: 10, shadowOffsetX: 3, shadowOffsetY: 3, shadowOpacity: 0.2 });
+                const headerHeight = 30;
+                const body = new Konva.Rect({ name: 'bodyRect', width, height, fill: '#f7f9fa', stroke: '#ced4da', strokeWidth: 1, cornerRadius: 4 });
+                const header = new Konva.Rect({ name: 'headerRect', width, height: headerHeight, fill: '#e9ecef', cornerRadius: [4, 4, 0, 0] });
+                const nameText = new Konva.Text({ name: 'nameText', text: name.toUpperCase(), fontSize: 14, fontFamily: 'Arial, sans-serif', fontStyle: 'bold', fill: '#495057', x: 10, y: 0, height: headerHeight, verticalAlign: 'middle' });
+                group.add(body, header, nameText);
+                layer.add(group);
+                group.on('dblclick', (e) => (e.target.hasName('headerRect') || e.target.hasName('nameText')) && editBlockName(group));
+                return group;
+            }
+            function editBlockName(blockGroup) {
+                const textNode = blockGroup.findOne('.nameText');
+                textNode.hide(); layer.draw();
+                const textPos = textNode.getAbsolutePosition(), stageBox = stage.container().getBoundingClientRect();
+                const areaPos = { x: stageBox.left + textPos.x, y: stageBox.top + textPos.y };
+                const input = document.createElement('input');
+                document.body.appendChild(input);
+                input.value = textNode.text();
+                Object.assign(input.style, { position: 'absolute', top: `${areaPos.y}px`, left: `${areaPos.x}px`, width: `${blockGroup.width() - 20}px`, height: `${textNode.height() - textNode.padding() * 2}px`, fontSize: `${textNode.fontSize()}px`, border: '1px solid #ced4da', padding: '4px', margin: '0', background: 'white' });
+                input.focus();
+                const removeInput = () => { if (document.body.contains(input)) document.body.removeChild(input); window.removeEventListener('click', handleOutsideClick); textNode.show(); layer.draw(); };
+                const setText = () => { textNode.text(input.value.toUpperCase()); removeInput(); };
+                input.addEventListener('keydown', e => { if (e.key === 'Enter') setText(); if (e.key === 'Escape') removeInput(); });
+                const handleOutsideClick = e => { if (e.target !== input) setText(); };
+                setTimeout(() => window.addEventListener('click', handleOutsideClick));
+            }
+
+            // ===============================================================
+            // 4. FUNCIONES DE EVENTOS Y MOVIMIENTO
+            // ===============================================================
+            function setupZoomAndPan(stage) {
+                const zoomFactor = 1.1; const stageContainer = stage.container();
+                stage.on('wheel', e => { e.evt.preventDefault(); const oldScale = stage.scaleX(), pointer = stage.getPointerPosition(); const mousePointTo = { x: (pointer.x - stage.x()) / oldScale, y: (pointer.y - stage.y()) / oldScale }; const newScale = e.evt.deltaY > 0 ? oldScale / zoomFactor : oldScale * zoomFactor; stage.scale({ x: newScale, y: newScale }); const newPos = { x: pointer.x - mousePointTo.x * newScale, y: pointer.y - mousePointTo.y * newScale }; stage.position(newPos); });
+                let isPanning = false, lastPointerPosition;
+                stage.on('mousedown', e => { if (e.target === stage) { isPanning = true; lastPointerPosition = stage.getPointerPosition(); stageContainer.style.cursor = 'grabbing'; } });
+                stage.on('mouseup mouseleave', () => { isPanning = false; stageContainer.style.cursor = 'default'; });
+                stage.on('mousemove', () => { if (isPanning) { const newPointerPosition = stage.getPointerPosition(); const dx = newPointerPosition.x - lastPointerPosition.x, dy = newPointerPosition.y - lastPointerPosition.y; stage.move({ x: dx, y: dy }); lastPointerPosition = newPointerPosition; } });
+            }
+
+            function reconnectEventHandlers() {
+                stage.off('click tap').on('click tap', e => {
+                    const parent = e.target.getParent();
+                    if (e.target === stage) {
+                        transformer.nodes([]);
+                        stopBlinking();
+                    } else if (parent && parent.hasName('blockContainer')) {
+                        transformer.nodes([parent]);
+                    } else {
+                        transformer.nodes([]);
+                    }
+                });
+
+                stage.find('.blockContainer').forEach(blockNode => { blockNode.off('transform').on('transform', () => { const body = blockNode.findOne('.bodyRect'), header = blockNode.findOne('.headerRect'); const newWidth = blockNode.width() * blockNode.scaleX(), newHeight = blockNode.height() * blockNode.scaleY(); blockNode.width(newWidth); blockNode.height(newHeight); body.width(newWidth); body.height(newHeight); header.width(newWidth); blockNode.scaleX(1); blockNode.scaleY(1); }); });
+
+                stage.find('.router, .switch').forEach(deviceNode => {
+                    deviceNode.off('dragstart dragend click tap');
+
+                    if (deviceNode.hasName('router')) {
+                        deviceNode.on('click tap', function () {
+                            const routerId = parseInt(this.id().split('-')[1]);
+                            const connection = connectionsFromDB.find(c => c.RouterId === routerId);
+
+                            if (connection) {
+                                // <<< LA CORRECCIÓN ESTÁ AQUÍ >>>
+                                // Ya no necesitamos buscar el "switchInfo" ni hacer cálculos.
+                                // El PortNumber de la conexión es el número absoluto que queremos.
+                                const absolutePortNumber = connection.PortNumber;
+
+                                highlightPort(connection.SwitchId, absolutePortNumber);
+                            } else {
+                                stopBlinking();
+                            }
+                        });
+                    }
+
+                    deviceNode.on('dragstart', function () { const parent = this.getParent(); if (parent && parent.hasName('blockContainer')) { const oldAbsPos = this.absolutePosition(); this.moveTo(layer); this.position(oldAbsPos); this.moveToTop(); layer.draw(); } });
+                    deviceNode.on('dragend', function () {
+                        const deviceRect = this.getClientRect(); let droppedOnBlock = null;
+                        stage.find('.blockContainer').forEach(blockNode => { if (Konva.Util.haveIntersection(deviceRect, blockNode.getClientRect())) { droppedOnBlock = blockNode; } });
+                        const currentParent = this.getParent(); const newParent = droppedOnBlock || layer;
+                        if (currentParent !== newParent) { const oldAbsPos = this.absolutePosition(); this.moveTo(newParent); const newLocPos = newParent.getAbsoluteTransform().copy().invert().point(oldAbsPos); this.position(newLocPos); }
+                        this.moveToTop(); layer.draw();
+                    });
+                });
+            }
+
+            // ===============================================================
+            // 5. EVENTOS DE LOS BOTONES
+            // ===============================================================
+            document.getElementById('add-block-btn').addEventListener('click', () => { const stageCenter = { x: (-stage.x() + stage.width() / 2) / stage.scaleX(), y: (-stage.y() + stage.height() / 2) / stage.scaleY() }; drawBlock(stageCenter.x - 200, stageCenter.y - 125, 400, 250, 'NUEVA ZONA'); reconnectEventHandlers(); });
+            document.getElementById('save-diagram-btn').addEventListener('click', function () {
+                transformer.nodes([]);
+                stopBlinking();
+                const jsonString = stage.toJSON();
+                $.ajax({
+                    url: '/DeviceConnection/SaveDiagram', type: 'POST', contentType: 'application/json; charset=utf-8', dataType: 'json',
+                    data: JSON.stringify({ JsonContent: jsonString }),
+                    success: function (data) { alert(data.message); },
+                    error: function (xhr, status, error) { console.error('Error al guardar:', { status, error, responseText: xhr.responseText }); alert('Hubo un error al guardar el diagrama.'); }
+                });
+            });
+        });
+    </script>
+}

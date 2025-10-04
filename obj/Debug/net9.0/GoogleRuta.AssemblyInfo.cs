@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("GoogleRuta")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+07e431efbe053bb5e9ec330f2b1e6115e4013c6a")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f48bd8de3e452afe17cfb4dd0133f25c20ae53b6")]
 [assembly: System.Reflection.AssemblyProductAttribute("GoogleRuta")]
 [assembly: System.Reflection.AssemblyTitleAttribute("GoogleRuta")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

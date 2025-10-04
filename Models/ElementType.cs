@@ -13,6 +13,8 @@ public class ElementType
     public int Id { get; set; }
     public string Name { get; set; }
     public string? IconoUrl { get; set; }
+    public string? IconColor { get; set; }
+    public string? IconoSvgContent { get; set; }
     public virtual ICollection<ElementProject> ElementProject { get; set; } = new List<ElementProject>();
      //public virtual ICollection<ColorThreadProject> ColorThreadProjects { get; set; } = new List<ColorThreadProject>();
 }

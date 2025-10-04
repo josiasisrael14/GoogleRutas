@@ -21,6 +21,10 @@ namespace GoogleRuta.Data
         public DbSet<Nodo> Nodos { get; set; }
         public DbSet<Connection> Connections { get; set; }
         public DbSet<Drawing> Drawings { get; set; }
+        public DbSet<Switchs> Switchs { get; set; }
+        public DbSet<SwitchPort> SwitchPorts { get; set; }
+        public DbSet<Router> Routers { get; set; }
+        public DbSet<Diagram> Diagrams { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -93,6 +97,20 @@ namespace GoogleRuta.Data
                 .WithMany()                    // Un nodo puede ser el destino de muchas conexiones
                 .HasForeignKey(c => c.DestinationNodoId)
                 .OnDelete(DeleteBehavior.Restrict); // ¡Importante! No borrar en cascada
+
+            modelBuilder.Entity<SwitchPort>()
+                         .HasKey(sp => new { sp.SwitchsId, sp.GroupNumber, sp.PortNumber }); //Clave primaria compuesta por SwitchsId y PortNumber
+
+            modelBuilder.Entity<SwitchPort>()
+                        .HasIndex(sp => sp.RouterId)
+                        .IsUnique();
+
+            modelBuilder.Entity<SwitchPort>()
+                        .HasOne(sp => sp.Router)          // Un puerto tiene UN router (o ninguno)
+                        .WithMany()                       // Router tiene MUCHOS puertos (que EF no necesita saber)
+                        .HasForeignKey(sp => sp.RouterId) // Usa RouterId
+                        .IsRequired(false);               // Permite que RouterId sea NULL (puerto vacío)                         
+
 
         }
     }

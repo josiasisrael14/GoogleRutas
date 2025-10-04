@@ -20,7 +20,7 @@ public class NodoDto
     public double CoordinateY { get; set; }
     public double Rotation { get; set; }
     public int? Size { get; set; }
-     public string? StrandColorsJson { get; set; }
+    public string? StrandColorsJson { get; set; }
 }
 
 // DTO para las conexiones

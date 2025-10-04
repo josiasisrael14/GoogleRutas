@@ -9,8 +9,11 @@
     <meta http-equiv="Expires" content="0">
     <title>@ViewData["Title"] - GOOGLERUTA</title>
 
-    <link rel="stylesheet" href="/plugins/fontawesome-free/css/all.min.css">
-    <link rel="stylesheet" href="https://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css">
+    @* <link rel="stylesheet" href="/plugins/fontawesome-free/css/all.min.css">
+    <link rel="stylesheet" href="https://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css"> *@
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="/plugins/tempusdominus-bootstrap-4/css/tempusdominus-bootstrap-4.min.css">
     <link rel="stylesheet" href="/plugins/icheck-bootstrap/icheck-bootstrap.min.css">
     <link rel="stylesheet" href="/plugins/jqvmap/jqvmap.min.css">
@@ -24,11 +27,11 @@
     <link rel="stylesheet" type="text/css"
         href="https://cdn.datatables.net/buttons/2.2.2/css/buttons.dataTables.min.css">
     <!-- Estilos para LiterallyCanvas -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/literallycanvas/0.5.2/css/literallycanvas.css">    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/literallycanvas/0.5.2/css/literallycanvas.css">
 
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 
-    
+
 
 
     @RenderSection("Styles", required: false)
@@ -252,13 +255,72 @@
                                 </li>
                             </ul>
 
-                              <ul class="nav nav-treeview">
+                            <ul class="nav nav-treeview">
                                 <li class="nav-item">
                                     <a href="@Url.Action("Index", "ColorTraces")" class="nav-link"
                                         style="padding: 0.5rem 1rem; font-size: 0.9rem;">
                                         <i class="fas fa-palette" style="font-size: 0.9rem;"></i>
                                         <p>
                                             ColorTrazas
+                                        </p>
+                                    </a>
+                                </li>
+                            </ul>
+                            <ul class="nav nav-treeview">
+                                <li class="nav-item">
+                                    <a href="@Url.Action("Index", "Router")" class="nav-link"
+                                        style="padding: 0.5rem 1rem; font-size: 0.9rem;">
+                                        <i class="fas fa-network-wired" style="font-size: 0.9rem;"></i>
+                                        <p>
+                                            Router
+                                        </p>
+                                    </a>
+                                </li>
+                            </ul>
+
+                            <ul class="nav nav-treeview">
+                                <li class="nav-item">
+                                    <a href="@Url.Action("Index", "Switch")" class="nav-link"
+                                        style="padding: 0.5rem 1rem; font-size: 0.9rem;">
+                                        <i class="fas fa-ethernet" style="font-size: 0.9rem;"></i>
+                                        <p>
+                                            Switch
+                                        </p>
+                                    </a>
+                                </li>
+                            </ul>
+
+                        </li>
+
+
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" style="padding: 0.5rem 1rem; font-size: 0.9rem;">
+                                <i class="fas fa-cogs" style="font-size: 0.9rem;"></i>
+                                <p>
+                                    Diseño Conexiones
+                                    <i class="right fas fa-angle-left"></i>
+                                </p>
+                            </a>
+
+                            <ul class="nav nav-treeview">
+                                <li class="nav-item">
+                                    <a href="@Url.Action("Index", "DeviceConnection")" class="nav-link"
+                                        style="padding: 0.5rem 1rem; font-size: 0.9rem;">
+                                        <i class="fas fa-layer-group" style="font-size: 0.9rem;"></i>
+                                        <p>
+                                            Diseño Teleco
+                                        </p>
+                                    </a>
+                                </li>
+                            </ul>
+
+                            <ul class="nav nav-treeview">
+                                <li class="nav-item">
+                                    <a href="@Url.Action("EquipmentConnection", "DeviceConnection")" class="nav-link"
+                                        style="padding: 0.5rem 1rem; font-size: 0.9rem;">
+                                        <i class="fas fa-layer-group" style="font-size: 0.9rem;"></i>
+                                        <p>
+                                            Conexiones
                                         </p>
                                     </a>
                                 </li>
@@ -332,7 +394,8 @@
         src="https://cdn.datatables.net/buttons/2.2.2/js/buttons.html5.min.js"></script>
     <script type="text/javascript" charset="utf8"
         src="https://cdn.datatables.net/buttons/2.2.2/js/buttons.print.min.js"></script>
-    
+
+
     @RenderSection("Scripts", required: false)
 
 </body>

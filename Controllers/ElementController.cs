@@ -16,13 +16,15 @@ public class ElementController : Controller
 
     public async Task<IActionResult> Index()
     {
-        var entities = await _service.GetAll(); // List<ElementProject>
+        var entities = await _service.GetAll();
+        // List<ElementProject>
 
         var viewModels = entities.Select(e => new ElementViewModel
         {
             Id = e.Id,
             Name = e.Name,
-            IconoUrl = e.IconoUrl
+            IconoUrl = e.IconoUrl,
+            IconColor = e.IconColor
         }).ToList();
 
         return View(new ElementListViewModel
@@ -30,7 +32,6 @@ public class ElementController : Controller
             Elements = viewModels
         });
     }
-
 
     [HttpPost]
     [Route("Element/Add")]

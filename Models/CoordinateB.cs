@@ -9,6 +9,8 @@ public class CoordinateB
 
     public double Lat { get; set; }
     public double Lng { get; set; }
+    public string Color { get; set; }
+    public string? SegmentId { get; set; }
 
     // Clave foránea al proyecto al que pertenece
     public int ProjectId { get; set; }
