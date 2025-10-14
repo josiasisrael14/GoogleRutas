@@ -90,8 +90,8 @@
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label for="groupNumber">Número de Grupo/Fila <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control" id="groupNumber" placeholder="Ej: 1" required
-                                    min="1">
+                                <input type="number" class="form-control" id="groupNumber" placeholder="Ej: 1"
+                                    >
                             </div>
                         </div>
                     </div>
@@ -109,6 +109,7 @@
 <table id="connectionsTable" class="display table table-striped table-bordered" style="width:100%">
     <thead>
         <tr>
+            <th>Id</th>
             <th>Switch</th>
             <th>Ubicación del Puerto</th>
             <th>Router Conectado</th>
@@ -119,6 +120,7 @@
         @foreach (var conn in Model.Connections)
         {
             <tr>
+                <td>@conn.Id</td>
                 <td>@conn.SwitchName</td>
                 <td>Fila @conn.GroupNumber / Puerto @conn.PortNumber</td>
                 <td>@conn.RouterName</td>
@@ -156,10 +158,10 @@
                     SwitchsId: parseInt($('#switchSelect').val()),
                     RouterId: parseInt($('#routerSelect').val()),
                     PortNumber: parseInt($('#portNumber').val()),
-                    GroupNumber: parseInt($('#groupNumber').val())
+                    //GroupNumber: parseInt($('#groupNumber').val())
                 };
 
-                if (!dataToSend.SwitchsId || !dataToSend.RouterId || !dataToSend.PortNumber || !dataToSend.GroupNumber) {
+                if (!dataToSend.SwitchsId || !dataToSend.RouterId || !dataToSend.PortNumber) {
                     Swal.fire('Campos incompletos', 'Por favor, complete todos los campos obligatorios.', 'warning');
                     return;
                 }
@@ -204,8 +206,8 @@
             }).then((result) => {
                 if (result.isConfirmed) {
                     $.ajax({
-                        url: '/DeviceConnection/ConnectDevices',
-                        type: 'POST',
+                        url: '/DeviceConnection/DeleteConnection/'+connectionId,
+                        type: 'DELETE',
                         contentType: 'application/json',
                         data: JSON.stringify({ Id: parseInt(connectionId), RouterId: null }), // Enviamos el ID del router como nulo
                         success: function (response) {

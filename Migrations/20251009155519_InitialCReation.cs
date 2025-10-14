@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace GoogleRuta.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreation : Migration
+    public partial class InitialCReation : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -66,11 +66,27 @@ namespace GoogleRuta.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Diagrams",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    JsonContent = table.Column<string>(type: "TEXT", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Diagrams", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Drawings",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1")
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    JsonContent = table.Column<string>(type: "TEXT", nullable: true),
+                    SvgContent = table.Column<string>(type: "TEXT", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -84,11 +100,64 @@ namespace GoogleRuta.Migrations
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    IconoUrl = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                    IconoUrl = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    IconColor = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    IconoSvgContent = table.Column<string>(type: "nvarchar(max)", nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_ElementTypes", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Elfas",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    TotalPorts = table.Column<int>(type: "int", nullable: false),
+                    GroupCount = table.Column<int>(type: "int", nullable: false),
+                    PortsPerGroup = table.Column<int>(type: "int", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Elfas", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Odfs",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    TotalPorts = table.Column<int>(type: "int", nullable: false),
+                    GroupCount = table.Column<int>(type: "int", nullable: false),
+                    PortsPerGroup = table.Column<int>(type: "int", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Odfs", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Odls",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    TotalPorts = table.Column<int>(type: "int", nullable: false),
+                    ColumnCount = table.Column<int>(type: "int", nullable: false),
+                    PortsPerColumn = table.Column<int>(type: "int", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Odls", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -102,6 +171,38 @@ namespace GoogleRuta.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Projects", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Routers",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    IPAddress = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Description = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Routers", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Switchs",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    TotalPorts = table.Column<int>(type: "int", nullable: false),
+                    GroupCount = table.Column<int>(type: "int", nullable: false),
+                    PortsPerGroup = table.Column<int>(type: "int", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Switchs", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -216,10 +317,13 @@ namespace GoogleRuta.Migrations
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
-                    Type = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    TypeSplitter = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Type = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    TypeSplitter = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     CoordinateX = table.Column<double>(type: "float", nullable: false),
                     CoordinateY = table.Column<double>(type: "float", nullable: false),
+                    Rotation = table.Column<double>(type: "float", nullable: false),
+                    Size = table.Column<int>(type: "int", nullable: true),
+                    StrandColorsJson = table.Column<string>(type: "TEXT", nullable: true),
                     DrawingId = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
@@ -229,6 +333,45 @@ namespace GoogleRuta.Migrations
                         name: "FK_Nodos_Drawings_DrawingId",
                         column: x => x.DrawingId,
                         principalTable: "Drawings",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ConnectionTelecoms",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Description = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Datetime = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    OdlId = table.Column<int>(type: "int", nullable: false),
+                    PortOdl = table.Column<int>(type: "int", nullable: false),
+                    ElfaId = table.Column<int>(type: "int", nullable: false),
+                    PortElfaInput = table.Column<int>(type: "int", nullable: false),
+                    PortElfaOutput = table.Column<int>(type: "int", nullable: false),
+                    OdfId = table.Column<int>(type: "int", nullable: false),
+                    PortOdf = table.Column<int>(type: "int", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ConnectionTelecoms", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ConnectionTelecoms_Elfas_ElfaId",
+                        column: x => x.ElfaId,
+                        principalTable: "Elfas",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_ConnectionTelecoms_Odfs_OdfId",
+                        column: x => x.OdfId,
+                        principalTable: "Odfs",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_ConnectionTelecoms_Odls_OdlId",
+                        column: x => x.OdlId,
+                        principalTable: "Odls",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -267,6 +410,8 @@ namespace GoogleRuta.Migrations
                         .Annotation("SqlServer:Identity", "1, 1"),
                     Lat = table.Column<double>(type: "float", nullable: false),
                     Lng = table.Column<double>(type: "float", nullable: false),
+                    Color = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    SegmentId = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     ProjectId = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
@@ -291,7 +436,8 @@ namespace GoogleRuta.Migrations
                     ProjectId = table.Column<int>(type: "int", nullable: false),
                     Lat = table.Column<double>(type: "float", nullable: false),
                     Lng = table.Column<double>(type: "float", nullable: false),
-                    DrawingId = table.Column<int>(type: "int", nullable: true)
+                    DrawingId = table.Column<int>(type: "int", nullable: true),
+                    Image = table.Column<byte[]>(type: "varbinary(max)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -316,14 +462,43 @@ namespace GoogleRuta.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "SwitchPorts",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    SwitchsId = table.Column<int>(type: "int", nullable: false),
+                    PortNumber = table.Column<int>(type: "int", nullable: false),
+                    GroupNumber = table.Column<int>(type: "int", nullable: true),
+                    RouterId = table.Column<int>(type: "int", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_SwitchPorts", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_SwitchPorts_Routers_RouterId",
+                        column: x => x.RouterId,
+                        principalTable: "Routers",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_SwitchPorts_Switchs_SwitchsId",
+                        column: x => x.SwitchsId,
+                        principalTable: "Switchs",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Connections",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     Color = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Type = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Type = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     Thickness = table.Column<int>(type: "int", nullable: true),
+                    OrigenPuntoIndex = table.Column<int>(type: "int", nullable: false),
+                    DestinoPuntoIndex = table.Column<int>(type: "int", nullable: false),
                     DrawingId = table.Column<int>(type: "int", nullable: false),
                     OrigenNodoId = table.Column<int>(type: "int", nullable: false),
                     DestinationNodoId = table.Column<int>(type: "int", nullable: false),
@@ -418,6 +593,30 @@ namespace GoogleRuta.Migrations
                 column: "OrigenNodoId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_ConnectionTelecoms_ElfaId_PortElfaInput",
+                table: "ConnectionTelecoms",
+                columns: new[] { "ElfaId", "PortElfaInput" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ConnectionTelecoms_ElfaId_PortElfaOutput",
+                table: "ConnectionTelecoms",
+                columns: new[] { "ElfaId", "PortElfaOutput" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ConnectionTelecoms_OdfId_PortOdf",
+                table: "ConnectionTelecoms",
+                columns: new[] { "OdfId", "PortOdf" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ConnectionTelecoms_OdlId_PortOdl",
+                table: "ConnectionTelecoms",
+                columns: new[] { "OdlId", "PortOdl" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_CoordinateBs_ProjectId",
                 table: "CoordinateBs",
                 column: "ProjectId");
@@ -441,6 +640,17 @@ namespace GoogleRuta.Migrations
                 name: "IX_Nodos_DrawingId",
                 table: "Nodos",
                 column: "DrawingId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SwitchPorts_RouterId",
+                table: "SwitchPorts",
+                column: "RouterId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SwitchPorts_SwitchsId",
+                table: "SwitchPorts",
+                column: "SwitchsId");
         }
 
         /// <inheritdoc />
@@ -468,10 +678,19 @@ namespace GoogleRuta.Migrations
                 name: "Connections");
 
             migrationBuilder.DropTable(
+                name: "ConnectionTelecoms");
+
+            migrationBuilder.DropTable(
                 name: "CoordinateBs");
 
             migrationBuilder.DropTable(
+                name: "Diagrams");
+
+            migrationBuilder.DropTable(
                 name: "ElementProjects");
+
+            migrationBuilder.DropTable(
+                name: "SwitchPorts");
 
             migrationBuilder.DropTable(
                 name: "AspNetRoles");
@@ -486,10 +705,25 @@ namespace GoogleRuta.Migrations
                 name: "Nodos");
 
             migrationBuilder.DropTable(
+                name: "Elfas");
+
+            migrationBuilder.DropTable(
+                name: "Odfs");
+
+            migrationBuilder.DropTable(
+                name: "Odls");
+
+            migrationBuilder.DropTable(
                 name: "ElementTypes");
 
             migrationBuilder.DropTable(
                 name: "Projects");
+
+            migrationBuilder.DropTable(
+                name: "Routers");
+
+            migrationBuilder.DropTable(
+                name: "Switchs");
 
             migrationBuilder.DropTable(
                 name: "Drawings");

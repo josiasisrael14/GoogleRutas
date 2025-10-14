@@ -5,6 +5,43 @@
     ViewData["Title"] = "Diagrama de Red";
 }
 
+@section Styles {
+    <style>
+        /* --- ESTILOS PARA EL MENÚ CONTEXTUAL --- */
+        #konva-context-menu {
+            display: none;
+            position: absolute;
+            z-index: 1000;
+            background-color: white;
+            border: 1px solid #ccc;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            border-radius: 4px;
+            padding: 5px 0;
+            min-width: 160px;
+        }
+
+        .menu-item {
+            padding: 8px 15px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+        }
+
+        .menu-item:hover {
+            background-color: #f5f5f5;
+        }
+
+        .menu-item.delete {
+            color: #dc3545;
+        }
+
+        .menu-item i {
+            margin-right: 10px;
+        }
+    </style>
+}
+
 <h1>@ViewData["Title"]</h1>
 
 <div class="mb-3">
@@ -13,6 +50,12 @@
 </div>
 
 <div id="konva-container" style="border: 1px solid #ccc; background-color: #f9f9f9; height: 80vh;"></div>
+
+<div id="konva-context-menu">
+    <div id="menu-delete-item" class="menu-item delete">
+        <i class="fas fa-trash-alt"></i> Eliminar Dispositivo
+    </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/konva@9/konva.min.js"></script>
 
@@ -25,14 +68,22 @@
             // ===============================================================
             const latestRoutersFromDB = @Html.Raw(JsonSerializer.Serialize(Model.Routers));
             const latestSwitchesFromDB = @Html.Raw(JsonSerializer.Serialize(Model.Switches));
+            const latestOdlsFromDB = @Html.Raw(JsonSerializer.Serialize(Model.Odls));
+            const latestOdfsFromDB = @Html.Raw(JsonSerializer.Serialize(Model.Odfs));
+            const latestElfasFromDB = @Html.Raw(JsonSerializer.Serialize(Model.Elfas));
             const diagramJson = @Html.Raw(Model.DiagramJson);
+
+            // ✅ CAMBIO: Se añade la nueva lista de conexiones sin tocar la variable original.
             const connectionsFromDB = @Html.Raw(JsonSerializer.Serialize(Model.Connections));
+            const telecomConnectionsFromDB = @Html.Raw(JsonSerializer.Serialize(Model.TelecomConnections));
 
             let stage, layer, transformer;
-            let blinkingPortInterval = null;
+
+            // ✅ CAMBIO: La variable de parpadeo ahora es un array para poder manejar múltiples puertos.
+            let blinkingPortIntervals = [];
 
             // ===============================================================
-            // 2. LÓGICA PRINCIPAL: CARGAR, REPARAR Y SINCRONIZAR
+            // 2. LÓGICA PRINCIPAL
             // ===============================================================
             if (diagramJson && diagramJson.attrs) {
                 stage = Konva.Node.create(diagramJson, 'konva-container');
@@ -44,31 +95,11 @@
                     height: container.clientHeight
                 });
             }
-
             layer = stage.findOne('Layer') || new Konva.Layer();
             if (!stage.findOne('Layer')) {
                 stage.add(layer);
             }
             layer.clipFunc(null);
-
-            // Bloque de reparación para diagramas antiguos. Esto es robusto y debe quedarse.
-            stage.find('.switch').forEach(switchGroup => {
-                const switchId = parseInt(switchGroup.id().split('-')[1]);
-                if (!switchId) return;
-
-                const allRects = switchGroup.find('Rect');
-                allRects.forEach((rectNode, index) => {
-                    if (index === 0) return; // Omitir el cuerpo del switch
-                    const portNumber = index;
-                    if (!rectNode.id() || !rectNode.id().includes('-port-')) {
-                        rectNode.id(`switch-${switchId}-port-${portNumber}`);
-                    }
-                    if (!rectNode.hasName('port')) {
-                        rectNode.name('port');
-                    }
-                });
-            });
-
             stage.find('Transformer').forEach(tr => tr.destroy());
             transformer = new Konva.Transformer({
                 borderStroke: '#007bff', anchorStroke: '#007bff', anchorFill: '#ffffff',
@@ -82,39 +113,46 @@
             reconnectEventHandlers();
 
             // ===============================================================
-            // 3. FUNCIONES DE DIBUJO Y SINCRONIZACIÓN (Sin Cambios)
+            // 3. FUNCIONES DE DIBUJO Y SINCRONIZACIÓN
             // ===============================================================
             function syncAndDrawNewDevices() {
-                const validRouterIds = new Set(latestRoutersFromDB.map(r => r.Id));
-                stage.find('.router').forEach(node => {
-                    if (!validRouterIds.has(parseInt(node.id().split('-')[1]))) { node.destroy(); }
-                });
-                const validSwitchIds = new Set(latestSwitchesFromDB.map(s => s.Id));
-                stage.find('.switch').forEach(node => {
-                    if (!validSwitchIds.has(parseInt(node.id().split('-')[1]))) { node.destroy(); }
-                });
-                const drawnRouterIds = new Set(stage.find('.router').map(n => parseInt(n.id().split('-')[1])));
-                const newRouters = latestRoutersFromDB.filter(r => !drawnRouterIds.has(r.Id));
-                const drawnSwitchIds = new Set(stage.find('.switch').map(n => parseInt(n.id().split('-')[1])));
-                const newSwitches = latestSwitchesFromDB.filter(s => !drawnSwitchIds.has(s.Id));
-                if (newRouters.length > 0) {
-                    let nextRouterY = 50;
-                    newRouters.forEach(router => {
-                        while (stage.getIntersection({ x: 50, y: nextRouterY })) { nextRouterY += 100; }
-                        drawRouter(router, 50, nextRouterY);
+                const deviceTypes = ['router', 'switch', 'odl', 'odf', 'elfa'];
+                const latestData = {
+                    router: latestRoutersFromDB,
+                    switch: latestSwitchesFromDB,
+                    odl: latestOdlsFromDB,
+                    odf: latestOdfsFromDB,
+                    elfa: latestElfasFromDB
+                };
+                const drawFunctions = {
+                    router: drawRouter,
+                    switch: drawSwitch,
+                    odl: drawOdl,
+                    odf: drawOdf,
+                    elfa: drawElfa
+                };
+
+                deviceTypes.forEach(type => {
+                    // Sincronizar: eliminar nodos que ya no existen en la BD
+                    const validIds = new Set(latestData[type].map(d => d.Id));
+                    stage.find(`.${type}`).forEach(node => {
+                        const nodeId = parseInt(node.id().split('-')[1]);
+                        if (!validIds.has(nodeId)) {
+                            node.destroy();
+                        }
                     });
-                }
-                if (newSwitches.length > 0) {
-                    let nextSwitchY = 50;
-                    newSwitches.forEach(sw => {
-                        const portSize = 14, portPadding = 7, portsPerRow = sw.PortsPerGroup;
-                        const switchWidth = (portSize + portPadding) * portsPerRow + portPadding;
-                        const posX = stage.width() - switchWidth - 50;
-                        while (stage.getIntersection({ x: posX, y: nextSwitchY })) { nextSwitchY += 120; }
-                        drawSwitch(sw, posX, nextSwitchY);
+
+                    // Dibujar: añadir nodos que están en la BD pero no en el canvas
+                    const drawnIds = new Set(stage.find(`.${type}`).map(n => parseInt(n.id().split('-')[1])));
+                    const newData = latestData[type].filter(d => !drawnIds.has(d.Id));
+                    newData.forEach((item, index) => {
+                        // Lógica simple de posicionamiento inicial
+                        drawFunctions[type](item, 50 + (index * 200), 50);
                     });
-                }
+                });
+                layer.draw();
             }
+
             function drawRouter(router, x, y) {
                 const group = new Konva.Group({ x, y, draggable: true, id: `router-${router.Id}`, name: 'router' });
                 const body = new Konva.Rect({ width: 150, height: 40, fill: '#007bff', cornerRadius: 5, stroke: '#0056b3', strokeWidth: 2 });
@@ -122,15 +160,15 @@
                 const ipText = new Konva.Text({ y: 45, text: router.IPAddress, fontSize: 12, fontFamily: 'Courier New', fill: '#333' });
                 group.add(body, nameText, ipText);
                 layer.add(group);
-                return group;
             }
+
             function drawSwitch(sw, x, y) {
                 const group = new Konva.Group({ x, y, draggable: true, id: `switch-${sw.Id}`, name: 'switch' });
                 const portSize = 14, portPadding = 7, portsPerRow = sw.PortsPerGroup, totalPorts = sw.TotalPorts, groupCount = sw.GroupCount;
                 const switchWidth = (portSize + portPadding) * portsPerRow + portPadding;
                 const switchHeight = (portSize + portPadding) * groupCount + 40;
                 const body = new Konva.Rect({ width: switchWidth, height: switchHeight, fill: '#28a745', cornerRadius: 3, stroke: '#1e7e34', strokeWidth: 2 });
-                const nameText = new Konva.Text({ text: sw.Name.toUpperCase(), fontSize: 14, fontFamily: 'Arial', fill: 'white', padding: 5 });
+                const nameText = new Konva.Text({ text: sw.Name.toUpperCase(), fontSize: 14, fontFamily: 'Arial', fill: 'white', padding: 5, width: switchWidth, align: 'center' });
                 group.add(body, nameText);
                 for (let i = 0; i < totalPorts; i++) {
                     const portNumber = i + 1;
@@ -143,20 +181,129 @@
                     group.add(portText);
                 }
                 layer.add(group);
-                return group;
             }
+
+            function drawOdl(odl, x, y) {
+                const group = new Konva.Group({ x, y, draggable: true, id: `odl-${odl.Id}`, name: 'odl' });
+                const portSize = 10, portPadding = 5, headerHeight = 35;
+                const columnCount = odl.ColumnCount, portsPerColumn = odl.PortsPerColumn;
+                const odlWidth = (portSize + portPadding) * columnCount + portPadding;
+                const odlHeight = (portSize + portPadding) * portsPerColumn + headerHeight + portPadding;
+                const body = new Konva.Rect({ width: odlWidth, height: odlHeight, fill: '#6c757d', cornerRadius: 4, stroke: '#495057', strokeWidth: 2 });
+                const nameText = new Konva.Text({ text: odl.Name.toUpperCase(), fontSize: 14, fontFamily: 'Arial', fill: 'white', padding: 10, width: odlWidth, align: 'center' });
+                group.add(body, nameText);
+                for (let c = 0; c < columnCount; c++) {
+                    for (let p = 0; p < portsPerColumn; p++) {
+                        const portNumber = (c * portsPerColumn) + p + 1;
+                        const portX = portPadding + c * (portSize + portPadding);
+                        const portY = headerHeight + p * (portSize + portPadding);
+                        const port = new Konva.Rect({ x: portX, y: portY, width: portSize, height: portSize, fill: '#343a40', stroke: '#212529', strokeWidth: 1, cornerRadius: 1, id: `odl-${odl.Id}-port-${portNumber}`, name: 'port' });
+                        group.add(port);
+                        const portText = new Konva.Text({ x: portX, y: portY, text: portNumber.toString(), fontSize: 7, fontFamily: 'Arial', fill: 'white', width: portSize, height: portSize, align: 'center', verticalAlign: 'middle', listening: false });
+                        group.add(portText);
+                    }
+                }
+                layer.add(group);
+            }
+
+            function drawOdf(odf, x, y) {
+                const group = new Konva.Group({ x, y, draggable: true, id: `odf-${odf.Id}`, name: 'odf' });
+                const portSize = 14, portPadding = 7, headerHeight = 35;
+                const portsPerRow = odf.PortsPerGroup, totalPorts = odf.TotalPorts, groupCount = odf.GroupCount;
+                const odfWidth = (portSize + portPadding) * portsPerRow + portPadding;
+                const odfHeight = (portSize + portPadding) * groupCount + headerHeight;
+                const body = new Konva.Rect({ width: odfWidth, height: odfHeight, fill: '#ffc107', cornerRadius: 3, stroke: '#e0a800', strokeWidth: 2 });
+                const nameText = new Konva.Text({ text: odf.Name.toUpperCase(), fontSize: 14, fontFamily: 'Arial', fill: '#212529', padding: 10, width: odfWidth, align: 'center' });
+                group.add(body, nameText);
+                for (let i = 0; i < totalPorts; i++) {
+                    const portNumber = i + 1;
+                    const groupIndex = Math.floor(i / portsPerRow), portIndexInGroup = i % portsPerRow;
+                    const portX = portPadding + portIndexInGroup * (portSize + portPadding);
+                    const portY = headerHeight - 5 + groupIndex * (portSize + portPadding);
+                    const port = new Konva.Rect({ x: portX, y: portY, width: portSize, height: portSize, fill: 'black', stroke: '#444', strokeWidth: 1, cornerRadius: 2, id: `odf-${odf.Id}-port-${portNumber}`, name: 'port' });
+                    group.add(port);
+                    const portText = new Konva.Text({ x: portX, y: portY, text: portNumber.toString(), fontSize: 9, fontFamily: 'Arial', fill: 'white', width: portSize, height: portSize, align: 'center', verticalAlign: 'middle', listening: false });
+                    group.add(portText);
+                }
+                layer.add(group);
+            }
+
+            function drawElfa(elfa, x, y) {
+                const group = new Konva.Group({ x, y, draggable: true, id: `elfa-${elfa.Id}`, name: 'elfa' });
+                const headerHeight = 35;
+                const groupCount = elfa.GroupCount;
+                const totalPorts = elfa.TotalPorts;
+                const nameText = new Konva.Text({ text: elfa.Name.toUpperCase(), fontSize: 14, fontFamily: 'Arial', fill: 'white', padding: 10, align: 'center' });
+                if (elfa.IsDuplex) {
+                    const connectorWidth = 25, connectorHeight = 15, connectorPadding = 10, groupPadding = 15;
+                    const textWidth = 15, textGap = 5;
+                    const portsPerGroup = elfa.PortsPerGroup;
+                    const connectorsPerGroup = portsPerGroup / 2;
+                    const elfaWidth = (textWidth + textGap + connectorWidth + connectorPadding) * connectorsPerGroup + connectorPadding;
+                    const elfaHeight = (connectorHeight * 2 + groupPadding) * groupCount + headerHeight - groupPadding + connectorPadding;
+                    const body = new Konva.Rect({ width: elfaWidth, height: elfaHeight, fill: '#6f42c1', cornerRadius: 3, stroke: '#5a37a0', strokeWidth: 2 });
+                    nameText.width(elfaWidth);
+                    group.add(body, nameText);
+                    for (let g = 0; g < groupCount; g++) {
+                        const groupYOffset = headerHeight + g * (connectorHeight * 2 + groupPadding);
+                        const portColor = (g === 0) ? '#20c997' : '#007bff'; // g=0 es la primera fila (verde), el resto azul
+                        for (let c = 0; c < connectorsPerGroup; c++) {
+                            const columnStartX = connectorPadding + c * (textWidth + textGap + connectorWidth + connectorPadding);
+                            const textX = columnStartX;
+                            const connectorX = textX + textWidth + textGap;
+                            const portNumberTop = (c * 2) + 1;
+                            const portNumberBottom = (c * 2) + 2;
+                            const absolutePortNumberTop = (g * portsPerGroup) + portNumberTop;
+                            const absolutePortNumberBottom = (g * portsPerGroup) + portNumberBottom;
+                            const portTop = new Konva.Rect({ x: connectorX, y: groupYOffset, width: connectorWidth, height: connectorHeight, fill: portColor, stroke: '#1a9875', strokeWidth: 1, cornerRadius: 2, id: `elfa-${elfa.Id}-port-${absolutePortNumberTop}`, name: 'port' });
+                            const portBottom = new Konva.Rect({ x: connectorX, y: groupYOffset + connectorHeight, width: connectorWidth, height: connectorHeight, fill: portColor, stroke: '#1a9875', strokeWidth: 1, cornerRadius: 2, id: `elfa-${elfa.Id}-port-${absolutePortNumberBottom}`, name: 'port' });
+                            group.add(portTop, portBottom);
+                            const textTop = new Konva.Text({ x: textX, y: groupYOffset + (connectorHeight / 2) - 5, text: portNumberTop.toString(), fontSize: 10, fill: '#fff', width: textWidth, align: 'right' });
+                            const textBottom = new Konva.Text({ x: textX, y: groupYOffset + connectorHeight + (connectorHeight / 2) - 5, text: portNumberBottom.toString(), fontSize: 10, fill: '#fff', width: textWidth, align: 'right' });
+                            group.add(textTop, textBottom);
+                        }
+                    }
+                } else {
+                    const portSize = 14, portPadding = 7;
+                    const portsPerGroup = elfa.PortsPerGroup;
+                    const elfaWidth = (portSize + portPadding) * portsPerGroup + portPadding;
+                    const elfaHeight = (portSize + portPadding) * groupCount + headerHeight;
+                    const body = new Konva.Rect({ width: elfaWidth, height: elfaHeight, fill: '#6f42c1', cornerRadius: 3, stroke: '#5a37a0', strokeWidth: 2 });
+                    nameText.width(elfaWidth);
+                    group.add(body, nameText);
+                    for (let i = 0; i < totalPorts; i++) {
+                        const groupIndex = Math.floor(i / portsPerGroup);
+                        const portIndexInGroup = i % portsPerGroup;
+                        const displayedPortNumber = portIndexInGroup + 1;
+                        const absolutePortNumber = i + 1;
+                        const portX = portPadding + portIndexInGroup * (portSize + portPadding);
+                        const portY = headerHeight - 5 + groupIndex * (portSize + portPadding);
+                        const port = new Konva.Rect({ x: portX, y: portY, width: portSize, height: portSize, fill: 'black', stroke: '#444', strokeWidth: 1, cornerRadius: 2, id: `elfa-${elfa.Id}-port-${absolutePortNumber}`, name: 'port' });
+                        group.add(port);
+                        const portText = new Konva.Text({ x: portX, y: portY, text: displayedPortNumber.toString(), fontSize: 9, fontFamily: 'Arial', fill: 'white', width: portSize, height: portSize, align: 'center', verticalAlign: 'middle', listening: false });
+                        group.add(portText);
+                    }
+                }
+                layer.add(group);
+            }
+
+            // ✅ CAMBIO: Las funciones de resaltado se modifican para manejar un array.
             function stopBlinking() {
-                if (blinkingPortInterval) {
-                    clearInterval(blinkingPortInterval.intervalId);
-                    blinkingPortInterval.node.fill(blinkingPortInterval.originalFill);
-                    blinkingPortInterval = null;
+                if (blinkingPortIntervals.length > 0) {
+                    blinkingPortIntervals.forEach(blinker => {
+                        clearInterval(blinker.intervalId);
+                        if (blinker.node) {
+                            blinker.node.fill(blinker.originalFill);
+                        }
+                    });
+                    blinkingPortIntervals = [];
                     layer.draw();
                 }
             }
-            function highlightPort(switchId, portNumber) {
-                stopBlinking();
-                if (!switchId || !portNumber) return;
-                const portId = `switch-${switchId}-port-${portNumber}`;
+
+            function highlightFullPath(deviceType, deviceId, portNumber) {
+                if (!deviceType || !deviceId || !portNumber) return;
+                const portId = `${deviceType}-${deviceId}-port-${portNumber}`;
                 const portNode = stage.findOne(`#${portId}`);
                 if (portNode) {
                     const originalFill = portNode.fill();
@@ -166,11 +313,16 @@
                         isHighlighted = !isHighlighted;
                         layer.draw();
                     }, 400);
-                    blinkingPortInterval = { node: portNode, intervalId: intervalId, originalFill: originalFill };
+                    blinkingPortIntervals.push({ node: portNode, intervalId: intervalId, originalFill: originalFill });
                 } else {
                     console.warn(`No se encontró el puerto con ID: ${portId}`);
                 }
             }
+
+            function highlightPort(switchId, portNumber) {
+                highlightFullPath('switch', switchId, portNumber);
+            }
+
             function drawBlock(x, y, width, height, name, id) {
                 const group = new Konva.Group({ x, y, width, height, draggable: true, id: id || `block-${Date.now()}`, name: 'blockContainer', shadowColor: 'black', shadowBlur: 10, shadowOffsetX: 3, shadowOffsetY: 3, shadowOpacity: 0.2 });
                 const headerHeight = 30;
@@ -182,6 +334,7 @@
                 group.on('dblclick', (e) => (e.target.hasName('headerRect') || e.target.hasName('nameText')) && editBlockName(group));
                 return group;
             }
+
             function editBlockName(blockGroup) {
                 const textNode = blockGroup.findOne('.nameText');
                 textNode.hide(); layer.draw();
@@ -199,6 +352,7 @@
                 setTimeout(() => window.addEventListener('click', handleOutsideClick));
             }
 
+
             // ===============================================================
             // 4. FUNCIONES DE EVENTOS Y MOVIMIENTO
             // ===============================================================
@@ -211,42 +365,72 @@
                 stage.on('mousemove', () => { if (isPanning) { const newPointerPosition = stage.getPointerPosition(); const dx = newPointerPosition.x - lastPointerPosition.x, dy = newPointerPosition.y - lastPointerPosition.y; stage.move({ x: dx, y: dy }); lastPointerPosition = newPointerPosition; } });
             }
 
-            function reconnectEventHandlers() {
+            // ✅ CAMBIO: Esta función se modifica para añadir la nueva lógica de clic.
+            @* function reconnectEventHandlers() {
                 stage.off('click tap').on('click tap', e => {
-                    const parent = e.target.getParent();
                     if (e.target === stage) {
                         transformer.nodes([]);
                         stopBlinking();
-                    } else if (parent && parent.hasName('blockContainer')) {
-                        transformer.nodes([parent]);
-                    } else {
-                        transformer.nodes([]);
                     }
                 });
 
                 stage.find('.blockContainer').forEach(blockNode => { blockNode.off('transform').on('transform', () => { const body = blockNode.findOne('.bodyRect'), header = blockNode.findOne('.headerRect'); const newWidth = blockNode.width() * blockNode.scaleX(), newHeight = blockNode.height() * blockNode.scaleY(); blockNode.width(newWidth); blockNode.height(newHeight); body.width(newWidth); body.height(newHeight); header.width(newWidth); blockNode.scaleX(1); blockNode.scaleY(1); }); });
 
-                stage.find('.router, .switch').forEach(deviceNode => {
+                stage.find('.router, .switch, .odl, .odf, .elfa').forEach(deviceNode => {
                     deviceNode.off('dragstart dragend click tap');
 
+                    // --- Lógica de clic para Router (Usa la nueva lógica) ---
                     if (deviceNode.hasName('router')) {
                         deviceNode.on('click tap', function () {
+                            stopBlinking();
                             const routerId = parseInt(this.id().split('-')[1]);
                             const connection = connectionsFromDB.find(c => c.RouterId === routerId);
-
                             if (connection) {
-                                // <<< LA CORRECCIÓN ESTÁ AQUÍ >>>
-                                // Ya no necesitamos buscar el "switchInfo" ni hacer cálculos.
-                                // El PortNumber de la conexión es el número absoluto que queremos.
-                                const absolutePortNumber = connection.PortNumber;
-
-                                highlightPort(connection.SwitchId, absolutePortNumber);
-                            } else {
-                                stopBlinking();
+                                highlightPort(connection.SwitchId, connection.PortNumber);
                             }
                         });
                     }
 
+                    // --- NUEVA LÓGICA DE CLIC AÑADIDA PARA ODL, ODF Y ELFA ---
+                    if (deviceNode.hasName('odl') || deviceNode.hasName('odf') || deviceNode.hasName('elfa')) {
+                        deviceNode.find('.port').forEach(portShape => {
+                            portShape.on('click tap', function (e) {
+                                e.cancelBubble = true;
+                                stopBlinking();
+
+                                const portId = this.id();
+                                const parts = portId.split('-');
+                                const deviceTypeClicked = parts[0];
+                                const deviceIdClicked = parseInt(parts[1]);
+                                const portClicked = parseInt(parts[3]);
+
+                                let connection = null;
+
+                                if (deviceTypeClicked === 'odl') {
+                                    connection = telecomConnectionsFromDB.find(c =>
+                                        c.OdlId === deviceIdClicked && c.PortOdl === portClicked
+                                    );
+                                } else if (deviceTypeClicked === 'odf') {
+                                    connection = telecomConnectionsFromDB.find(c =>
+                                        c.OdfId === deviceIdClicked && c.PortOdf === portClicked
+                                    );
+                                } else if (deviceTypeClicked === 'elfa') {
+                                    connection = telecomConnectionsFromDB.find(c =>
+                                        c.ElfaId === deviceIdClicked && (c.PortElfaInput === portClicked || c.PortElfaOutput === portClicked)
+                                    );
+                                }
+
+                                if (connection) {
+                                    highlightFullPath('odl', connection.OdlId, connection.PortOdl);
+                                    highlightFullPath('elfa', connection.ElfaId, connection.PortElfaInput);
+                                    highlightFullPath('elfa', connection.ElfaId, connection.PortElfaOutput);
+                                    highlightFullPath('odf', connection.OdfId, connection.PortOdf);
+                                }
+                            });
+                        });
+                    }
+
+                    // Lógica de drag & drop (sin cambios)
                     deviceNode.on('dragstart', function () { const parent = this.getParent(); if (parent && parent.hasName('blockContainer')) { const oldAbsPos = this.absolutePosition(); this.moveTo(layer); this.position(oldAbsPos); this.moveToTop(); layer.draw(); } });
                     deviceNode.on('dragend', function () {
                         const deviceRect = this.getClientRect(); let droppedOnBlock = null;
@@ -256,7 +440,122 @@
                         this.moveToTop(); layer.draw();
                     });
                 });
-            }
+            } *@
+
+                function reconnectEventHandlers() {
+                    // Primero, quitamos todos los listeners para evitar duplicados.
+                    stage.off('click tap');
+
+                    // --- Lógica de clic corregida ---
+                    stage.on('click tap', e => {
+                        // Si se hace clic en el fondo del escenario, deseleccionar todo.
+                        if (e.target === stage) {
+                            transformer.nodes([]);
+                            stopBlinking();
+                            return; // Salimos de la función
+                        }
+
+                        // Comprobar si se hizo clic en un bloque o en una de sus partes.
+                        let blockClicked = null;
+                        if (e.target.hasName('blockContainer')) {
+                            // Se hizo clic directamente en el grupo del bloque
+                            blockClicked = e.target;
+                        } else if (e.target.getParent() && e.target.getParent().hasName('blockContainer')) {
+                            // Se hizo clic en una parte interna (header, body) del bloque
+                            blockClicked = e.target.getParent();
+                        }
+
+                        if (blockClicked) {
+                            // Si se encontró un bloque, se selecciona para transformarlo.
+                            transformer.nodes([blockClicked]);
+                        } else {
+                            // Si no se hizo clic en un bloque (sino en un dispositivo), deseleccionar todo.
+                            transformer.nodes([]);
+                        }
+                    });
+
+                    // --- Lógica de transformación para los bloques (sin cambios) ---
+                    stage.find('.blockContainer').forEach(blockNode => {
+                        blockNode.off('transform').on('transform', () => {
+                            const body = blockNode.findOne('.bodyRect'), header = blockNode.findOne('.headerRect');
+                            const newWidth = blockNode.width() * blockNode.scaleX(), newHeight = blockNode.height() * blockNode.scaleY();
+                            blockNode.width(newWidth);
+                            blockNode.height(newHeight);
+                            body.width(newWidth);
+                            body.height(newHeight);
+                            header.width(newWidth);
+                            blockNode.scaleX(1);
+                            blockNode.scaleY(1);
+                        });
+                    });
+
+                    // --- Lógica de eventos para todos los dispositivos ---
+                    stage.find('.router, .switch, .odl, .odf, .elfa').forEach(deviceNode => {
+                        deviceNode.off('dragstart dragend click tap');
+
+                        // --- Lógica de clic para Router ---
+                        if (deviceNode.hasName('router')) {
+                            deviceNode.on('click tap', function () {
+                                stopBlinking();
+                                const routerId = parseInt(this.id().split('-')[1]);
+                                const connection = connectionsFromDB.find(c => c.RouterId === routerId);
+                                if (connection) {
+                                    highlightPort(connection.SwitchId, connection.PortNumber);
+                                }
+                            });
+                        }
+
+                        // --- Lógica de clic para ODL, ODF y ELFA ---
+                        if (deviceNode.hasName('odl') || deviceNode.hasName('odf') || deviceNode.hasName('elfa')) {
+                            deviceNode.find('.port').forEach(portShape => {
+                                portShape.on('click tap', function (e) {
+                                    e.cancelBubble = true;
+                                    stopBlinking();
+
+                                    const portId = this.id();
+                                    const parts = portId.split('-');
+                                    const deviceTypeClicked = parts[0];
+                                    const deviceIdClicked = parseInt(parts[1]);
+                                    const portClicked = parseInt(parts[3]);
+
+                                    let connection = null;
+
+                                    if (deviceTypeClicked === 'odl') {
+                                        connection = telecomConnectionsFromDB.find(c =>
+                                            c.OdlId === deviceIdClicked && c.PortOdl === portClicked
+                                        );
+                                    } else if (deviceTypeClicked === 'odf') {
+                                        connection = telecomConnectionsFromDB.find(c =>
+                                            c.OdfId === deviceIdClicked && c.PortOdf === portClicked
+                                        );
+
+                                    } else if (deviceTypeClicked === 'elfa') {
+                                        connection = telecomConnectionsFromDB.find(c =>
+                                            c.ElfaId === deviceIdClicked && (c.PortElfaInput === portClicked || c.PortElfaOutput === portClicked)
+                                        );
+                                    }
+
+                                    if (connection) {
+                                        highlightFullPath('odl', connection.OdlId, connection.PortOdl);
+                                        highlightFullPath('elfa', connection.ElfaId, connection.PortElfaInput);
+                                        highlightFullPath('elfa', connection.ElfaId, connection.PortElfaOutput);
+                                        highlightFullPath('odf', connection.OdfId, connection.PortOdf);
+                                    }
+                                });
+                            });
+                        }
+
+                        // --- Lógica de drag & drop para todos los dispositivos ---
+                        deviceNode.on('dragstart', function () { const parent = this.getParent(); if (parent && parent.hasName('blockContainer')) { const oldAbsPos = this.absolutePosition(); this.moveTo(layer); this.position(oldAbsPos); this.moveToTop(); layer.draw(); } });
+                        deviceNode.on('dragend', function () {
+                            const deviceRect = this.getClientRect(); let droppedOnBlock = null;
+                            stage.find('.blockContainer').forEach(blockNode => { if (Konva.Util.haveIntersection(deviceRect, blockNode.getClientRect())) { droppedOnBlock = blockNode; } });
+                            const currentParent = this.getParent(); const newParent = droppedOnBlock || layer;
+                            if (currentParent !== newParent) { const oldAbsPos = this.absolutePosition(); this.moveTo(newParent); const newLocPos = newParent.getAbsoluteTransform().copy().invert().point(oldAbsPos); this.position(newLocPos); }
+                            this.moveToTop(); layer.draw();
+                        });
+                    });
+                }
 
             // ===============================================================
             // 5. EVENTOS DE LOS BOTONES
@@ -271,6 +570,58 @@
                     data: JSON.stringify({ JsonContent: jsonString }),
                     success: function (data) { alert(data.message); },
                     error: function (xhr, status, error) { console.error('Error al guardar:', { status, error, responseText: xhr.responseText }); alert('Hubo un error al guardar el diagrama.'); }
+                });
+            });
+
+            // ===============================================================
+            // 6. CÓDIGO DEL MENÚ CONTEXTUAL
+            // ===============================================================
+            const menuNode = document.getElementById('konva-context-menu');
+            let currentShape = null;
+            stage.on('contextmenu', function (e) {
+                e.evt.preventDefault();
+                let target = e.target;
+                let parentGroup = target.getParent();
+                const deviceNames = ['router', 'switch', 'odl', 'odf', 'elfa'];
+                if (deviceNames.some(name => target.hasName(name))) { currentShape = target; }
+                else if (parentGroup && deviceNames.some(name => parentGroup.hasName(name))) { currentShape = parentGroup; }
+                else { menuNode.style.display = 'none'; currentShape = null; return; }
+                menuNode.style.display = 'initial';
+                const containerRect = stage.container().getBoundingClientRect();
+                menuNode.style.top = containerRect.top + stage.getPointerPosition().y + 4 + 'px';
+                menuNode.style.left = containerRect.left + stage.getPointerPosition().x + 4 + 'px';
+            });
+            window.addEventListener('click', () => { menuNode.style.display = 'none'; });
+            document.getElementById('menu-delete-item').addEventListener('click', () => {
+                if (!currentShape) return;
+                const id_parts = currentShape.id().split('-');
+                const deviceType = id_parts[0];
+                const deviceId = id_parts[1];
+                const deviceName = currentShape.findOne('Text').text();
+                Swal.fire({
+                    title: `¿Eliminar ${deviceType}?`, text: `¡Esta acción eliminará "${deviceName}" permanentemente!`, icon: 'warning',
+                    showCancelButton: true, confirmButtonColor: '#d33', cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Sí, ¡eliminar!', cancelButtonText: 'Cancelar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        const deleteUrl = `/${deviceType}/Delete/${deviceId}`;
+                        $.ajax({
+                            url: deleteUrl, type: 'DELETE',
+                            success: function (response) {
+                                if (response.success) {
+                                    Swal.fire('¡Eliminado!', response.message, 'success').then(() => {
+                                        currentShape.destroy();
+                                        layer.draw();
+                                        window.location.reload();
+                                    });
+                                } else { Swal.fire('Error', response.message, 'error'); }
+                            },
+                            error: function (xhr) {
+                                const errorMsg = xhr.responseJSON ? xhr.responseJSON.message : `No se pudo eliminar el ${deviceType}.`;
+                                Swal.fire('¡Error!', errorMsg, 'error');
+                            }
+                        });
+                    }
                 });
             });
         });

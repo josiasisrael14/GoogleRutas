@@ -11,7 +11,7 @@ public class ConnectionEquipmentDto
     public int SwitchId { get; set; }
     public string SwitchName { get; set; }
     public int PortNumber { get; set; }
-    public int GroupNumber { get; set; }
+    public int? GroupNumber { get; set; }
     public string RouterName { get; set; }
     public int? RouterId { get; set; }
 }

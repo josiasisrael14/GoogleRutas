@@ -28,6 +28,14 @@ builder.Services.AddScoped<GoogleRuta.Services.Interfaces.IElementService, Googl
 builder.Services.AddScoped<GoogleRuta.Services.Interfaces.IColorTracesService, GoogleRuta.Services.ColorTracesServices>();
 builder.Services.AddScoped<GoogleRuta.Services.Interfaces.IRouterService, GoogleRuta.Services.RouterServices>();
 builder.Services.AddScoped<GoogleRuta.Services.Interfaces.ISwitchService, GoogleRuta.Services.SwitchService>();
+
+builder.Services.AddScoped<GoogleRuta.Services.Interfaces.IElfaService, GoogleRuta.Services.ElfaService>();
+
+
+builder.Services.AddScoped<GoogleRuta.Services.Interfaces.IOdfService, GoogleRuta.Services.OdfService>();
+builder.Services.AddScoped<GoogleRuta.Services.Interfaces.IOdlService, GoogleRuta.Services.OdlService>();
+builder.Services.AddScoped<GoogleRuta.Services.Interfaces.IConnectionTelecomService, GoogleRuta.Services.ConnectionTelecomService>();
+
 //builder.Services.AddScoped<GoogleRuta.Services.Interfaces.IDeviceConnectionService, GoogleRuta.Services.DeviceConnectionService>();
 
 var app = builder.Build();

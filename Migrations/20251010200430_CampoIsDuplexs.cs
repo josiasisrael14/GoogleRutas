@@ -5,24 +5,25 @@
 namespace GoogleRuta.Migrations
 {
     /// <inheritdoc />
-    public partial class CampoIconColor : Migration
+    public partial class CampoIsDuplexs : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<string>(
-                name: "IconColor",
-                table: "ElementTypes",
-                type: "nvarchar(max)",
-                nullable: true);
+            migrationBuilder.AddColumn<bool>(
+                name: "IsDuplex",
+                table: "Elfas",
+                type: "bit",
+                nullable: false,
+                defaultValue: false);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropColumn(
-                name: "IconColor",
-                table: "ElementTypes");
+                name: "IsDuplex",
+                table: "Elfas");
         }
     }
 }

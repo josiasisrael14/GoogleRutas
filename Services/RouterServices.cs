@@ -67,6 +67,9 @@ public class RouterServices : IRouterService
             return false;
         }
 
+        var switchPort=_context.SwitchPorts.Where(sp=>sp.RouterId==id);
+       _context.SwitchPorts.RemoveRange(switchPort);
+       
         _context.Routers.Remove(router);
         await _context.SaveChangesAsync();
         return true;

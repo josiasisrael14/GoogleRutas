@@ -26,9 +26,17 @@ namespace GoogleRuta.Data
         public DbSet<Router> Routers { get; set; }
         public DbSet<Diagram> Diagrams { get; set; }
 
+        public DbSet<Elfa> Elfas { get; set; }
+        public DbSet<Odl> Odls { get; set; }
+        public DbSet<Odf> Odfs { get; set; }
+        public DbSet<ConnectionTelecom> ConnectionTelecoms { get; set; }
+
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            var conectionTable = modelBuilder.Entity<ConnectionTelecom>();
 
             // 1. Relación Project a CoordinateB: Cuando borras un Project, borra sus CoordinateBs.
             modelBuilder.Entity<Project>()
@@ -98,8 +106,11 @@ namespace GoogleRuta.Data
                 .HasForeignKey(c => c.DestinationNodoId)
                 .OnDelete(DeleteBehavior.Restrict); // ¡Importante! No borrar en cascada
 
-            modelBuilder.Entity<SwitchPort>()
-                         .HasKey(sp => new { sp.SwitchsId, sp.GroupNumber, sp.PortNumber }); //Clave primaria compuesta por SwitchsId y PortNumber
+            // modelBuilder.Entity<SwitchPort>()
+            //              .HasKey(sp => new { sp.SwitchsId, sp.GroupNumber, sp.PortNumber }); //Clave primaria compuesta por SwitchsId y PortNumber
+
+            //  modelBuilder.Entity<SwitchPort>()
+            //              .HasKey(sp => new { sp.SwitchsId, sp.GroupNumber, sp.PortNumber }); //Clave primaria compuesta por SwitchsId y PortNumber
 
             modelBuilder.Entity<SwitchPort>()
                         .HasIndex(sp => sp.RouterId)
@@ -109,7 +120,42 @@ namespace GoogleRuta.Data
                         .HasOne(sp => sp.Router)          // Un puerto tiene UN router (o ninguno)
                         .WithMany()                       // Router tiene MUCHOS puertos (que EF no necesita saber)
                         .HasForeignKey(sp => sp.RouterId) // Usa RouterId
-                        .IsRequired(false);               // Permite que RouterId sea NULL (puerto vacío)                         
+                        .IsRequired(false);               // Permite que RouterId sea NULL (puerto vacío)
+
+            // 1. Relación con ODL (Uno a Muchos)
+            conectionTable
+                        .HasOne(c => c.Odl)
+                        .WithMany(o => o.ConnectionTelecoms)
+                        .HasForeignKey(c => c.OdlId);
+
+            // 2. Relación con Elfa (Uno a Muchos)
+            conectionTable
+                .HasOne(c => c.Elfa)
+                .WithMany(e => e.ConnectionTelecoms)
+                .HasForeignKey(c => c.ElfaId);
+
+            // 3. Relación con ODF (Uno a Muchos)
+            conectionTable
+                .HasOne(c => c.Odf)
+                .WithMany(o => o.ConnectionTelecoms)
+                .HasForeignKey(c => c.OdfId);
+
+            // 4. LA PARTE MÁS IMPORTANTE: Definir las restricciones de unicidad
+            // Esto crea los `UNIQUE constraints` en la base de datos para garantizar
+            // que no se pueda usar el mismo puerto dos veces.
+
+            // El par (OdlId, PuertoOdl) debe ser único.
+            conectionTable.HasIndex(c => new { c.OdlId, c.PortOdl }).IsUnique();
+
+            // El par (ElfaId, PuertoElfaEntrada) debe ser único.
+            conectionTable.HasIndex(c => new { c.ElfaId, c.PortElfaInput }).IsUnique();
+
+            // El par (ElfaId, PuertoElfaSalida) debe ser único.
+            conectionTable.HasIndex(c => new { c.ElfaId, c.PortElfaOutput }).IsUnique();
+
+            // El par (OdfId, PuertoOdf) debe ser único.
+            conectionTable.HasIndex(c => new { c.OdfId, c.PortOdf }).IsUnique();
+
 
 
         }

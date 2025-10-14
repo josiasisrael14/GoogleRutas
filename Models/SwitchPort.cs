@@ -11,7 +11,7 @@ public class SwitchPort
     [ForeignKey("SwitchsId")]
     public virtual Switchs Switchs { get; set; }
     public int PortNumber { get; set; }
-    public int GroupNumber { get; set; }
+    public int? GroupNumber { get; set; }
     public int RouterId { get; set; }
     [ForeignKey("RouterId")]
     public virtual Router? Router { get; set; }

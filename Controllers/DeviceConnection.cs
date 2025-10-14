@@ -14,13 +14,19 @@ public class DeviceConnection : Controller
     private readonly ILogger<DeviceConnection> _logger;
     private readonly IRouterService _routerService;
     private readonly ISwitchService _switchService;
+    private readonly IOdlService _odlService;
+    private readonly IOdfService _odfService;
+    private readonly IElfaService _elfaService;
     private readonly ApplicationDbContext _context;
 
-    public DeviceConnection(ILogger<DeviceConnection> logger, IRouterService routerService, ISwitchService switchService, ApplicationDbContext context)
+    public DeviceConnection(ILogger<DeviceConnection> logger, IRouterService routerService, ISwitchService switchService, IOdlService odlService, IOdfService odfService, IElfaService elfaService, ApplicationDbContext context)
     {
         _logger = logger;
         _routerService = routerService;
         _switchService = switchService;
+        _odlService = odlService;
+        _odfService = odfService;
+        _elfaService = elfaService;
         _context = context;
 
     }
@@ -60,15 +66,23 @@ public class DeviceConnection : Controller
             })
             .ToListAsync();
 
+        var telecomConnections = await _context.ConnectionTelecoms.AsNoTracking().ToListAsync();
+
         var switchesFromDb = await _switchService.GetAll();
         var routersFromDb = await _routerService.GetAll();
-
+        var odlFromDb = await _odlService.GetAll();
+        var odfFrom = await _odfService.GetAll();
+        var elfaFrom = await _elfaService.GetAll();
         var viewModel = new DiagramaViewModel
         {
             Routers = routersFromDb,
             Switches = switchesFromDb,
+            Odls = odlFromDb,
+            Odfs = odfFrom,
+            Elfas = elfaFrom,
             DiagramJson = savedDiagram?.JsonContent ?? "{}",
-            Connections = connections // <-- Pasa las conexiones a la vista
+            Connections = connections,
+            TelecomConnections = telecomConnections// <-- Pasa las conexiones a la vista
         };
 
         return View(viewModel);
@@ -104,6 +118,22 @@ public class DeviceConnection : Controller
         };
 
         return View("EquipmentConnection", viewModel);
+    }
+
+
+    [HttpDelete]
+    [Route("DeviceConnection/DeleteConnection/{id}")]
+    public async Task<IActionResult> DeleteConnection(int id)
+    {
+        var switchPort = await _context.SwitchPorts.FindAsync(id);
+        if (switchPort is null)
+        {
+            return NotFound(new { success = false, message = "La conexión especificada no existe." });
+        }
+
+        _context.SwitchPorts.Remove(switchPort);
+        await _context.SaveChangesAsync();
+        return Ok(new { success = true, message = "Conexión eliminada exitosamente." });
     }
 
     [HttpPost]
