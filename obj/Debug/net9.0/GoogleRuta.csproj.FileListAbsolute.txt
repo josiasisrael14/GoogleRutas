@@ -3914,3 +3914,4 @@ C:\Users\USUARIO\Desktop\GoogleRuta\GoogleRuta\bin\Debug\net9.0\publish\wwwroot\
 C:\Users\USUARIO\Desktop\GoogleRuta\GoogleRuta\bin\Debug\net9.0\publish\wwwroot\js\fa-icons.json
 C:\Users\USUARIO\Desktop\GoogleRuta\GoogleRuta\bin\Debug\net9.0\SixLabors.ImageSharp.dll
 C:\Users\USUARIO\Desktop\GoogleRuta\GoogleRuta\obj\Debug\net9.0\compressed\anlof0bxk1-j5q2nh00md.gz
+C:\Users\USUARIO\Desktop\GoogleRuta\GoogleRuta\obj\Debug\net9.0\compressed\62n5f4dusw-fef4ogbh75.gz

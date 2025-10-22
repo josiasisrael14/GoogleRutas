@@ -787,7 +787,7 @@ function selectPolylineSegment(segment) {
 
 
 //codigo usado 
-function placeMarker(location, elementType, map, element) {
+@* function placeMarker(location, elementType, map, element) {
     let finalLocation = location;
     let snapped = false;
 
@@ -943,6 +943,125 @@ function placeMarker(location, elementType, map, element) {
     allMapMarkers.push(marker); // ⭐ NUEVO: Guardar referencia al marcador visual
 
     console.log("Elemento colocado:", elementData, snapped ? "(Acoplado exactamente)" : "(Posición libre)");
+} *@
+
+
+function placeMarker(location, elementType, map, element) {
+    let finalLocation = location;
+    let snapped = false;
+
+    // Solo aplicamos la lógica de acoplamiento si hay una línea seleccionada y es un elemento nuevo.
+    if (selectedPolyline && !element) {
+
+        // --- INICIO DE LA NUEVA LÓGICA DE PRECISIÓN ---
+
+        // PASO 1: Encontrar el punto más cercano en la línea a nuestro clic.
+        // Usamos la función que ya existe en tu código para esto.
+        const snappedPosition = getClosestPointOnPolyline(location, selectedPolyline);
+
+        // PASO 2: Calcular la distancia real en metros entre el clic y el punto más cercano en la línea.
+        const distance = google.maps.geometry.spherical.computeDistanceBetween(location, snappedPosition);
+
+        // PASO 3: Definir un radio de "atracción" en metros.
+        // Si el usuario hace clic a menos de esta distancia de la línea, lo acoplamos.
+        // Puedes ajustar este valor si te parece muy grande o muy pequeño.
+        const TOLERANCIA_EN_METROS = 15;
+
+        console.log(`Distancia a la línea: ${distance.toFixed(2)} metros.`);
+
+        // PASO 4: Si el clic está dentro de nuestra tolerancia...
+        if (distance < TOLERANCIA_EN_METROS) {
+            console.log(`✅ ¡Acoplando! El clic está dentro de la tolerancia de ${TOLERANCIA_EN_METROS}m.`);
+
+            // ...usamos el punto matemáticamente perfecto sobre la línea como la posición final.
+            finalLocation = snappedPosition;
+            snapped = true;
+
+        } else {
+            console.log("❌ Posición libre. El clic está demasiado lejos de la línea.");
+            // Si no, 'finalLocation' sigue siendo la ubicación original del clic.
+        }
+        // --- FIN DE LA NUEVA LÓGICA DE PRECISIÓN ---
+    }
+
+    // El resto del código para crear el marcador, guardar datos y añadir eventos
+    // permanece exactamente igual, ya que funciona correctamente.
+    const latitude = typeof finalLocation.lat === 'function' ? finalLocation.lat() : finalLocation.lat;
+    const longitude = typeof finalLocation.lng === 'function' ? finalLocation.lng() : finalLocation.lng;
+
+    const elementData = {
+        databaseId: element ? element.Id : null,
+        DrawingId: element ? element.DrawingId : null,
+        internalId: Date.now() + Math.random(),
+        lat: latitude,
+        lng: longitude,
+        elementTypeId: elementType.id,
+        attachedToPolyline: snapped ? selectedPolyline.segmentId : null
+    };
+
+    const marker = new google.maps.Marker({
+        position: { lat: latitude, lng: longitude },
+        map: map,
+        draggable: true,
+        icon: {
+            url: elementType.iconUrl,
+            scaledSize: new google.maps.Size(32, 32),
+            origin: new google.maps.Point(0, 0),
+            anchor: new google.maps.Point(16, 16)
+        }
+    });
+
+    marker.internalId = elementData.internalId;
+    marker.attachedToPolyline = elementData.attachedToPolyline;
+
+    google.maps.event.addListener(marker, 'dragend', function() {
+        handleMarkerDrag(marker);
+    });
+
+    google.maps.event.addListener(marker, 'dragstart', function() {
+        marker.isDragging = true;
+    });
+
+    google.maps.event.addListener(marker, 'rightclick', function () {
+        this.setMap(null);
+        placedElements = placedElements.filter(el => el.internalId !== this.internalId);
+        allMapMarkers = allMapMarkers.filter(m => m.internalId !== this.internalId);
+    });
+
+    google.maps.event.addListener(marker, 'click', function () {
+        if (!marker.isDragging) {
+            selectedMapElementData = placedElements.find(el => el.internalId === this.internalId);
+            const elementModal = document.getElementById('elementModal');
+            const myModal = new bootstrap.Modal(elementModal);
+
+            if (selectedMapElementData) {
+                elementModal.dataset.elementProjectId = selectedMapElementData.databaseId;
+            }
+
+            if (selectedMapElementData && selectedMapElementData.DrawingId) {
+                $.ajax({
+                    url: `/Project/GetDrawing/${selectedMapElementData.DrawingId}`,
+                    type: 'GET',
+                    dataType: 'json',
+                    success: function (objetoJsonRecibido) {
+                        $(elementModal).one('shown.bs.modal', () => window.cargarDesdeJSON && window.cargarDesdeJSON(objetoJsonRecibido));
+                        maximizarModal();
+                        myModal.show();
+                    },
+                    error: (xhr) => alert(`Error al cargar el dibujo: ${xhr.responseText}`)
+                });
+            } else {
+                window.limpiarLienzoKonvaGlobal && window.limpiarLienzoKonvaGlobal();
+                resetModalSize();
+                myModal.show();
+            }
+        }
+    });
+
+    placedElements.push(elementData);
+    allMapMarkers.push(marker);
+
+    console.log("Elemento colocado:", elementData, snapped ? "(Acoplado con precisión)" : "(Posición libre)");
 }
 
 
@@ -2264,7 +2383,7 @@ function autoConnectLastTwoCables() {
     console.log(`✅ Autoconexión de cables individuales completada.`);
 }
 
-            function createSplitterGroup(numInputs, numOutputs) {
+            @* function createSplitterGroup(numInputs, numOutputs) {
     const groupId = 'splitter_' + nodeIdCounter++;
     const group = new Konva.Group({ id: groupId, draggable: true, name: 'splitter', connectionPoints: [] });
 
@@ -2382,6 +2501,174 @@ function autoConnectLastTwoCables() {
     // group.on('dragend', () => restoreOriginalShape());
 
     return group;
+} *@
+
+
+function createSplitterGroup(numInputs, numOutputs) {
+    const groupId = 'splitter_' + nodeIdCounter++;
+    const group = new Konva.Group({ id: groupId, draggable: true, name: 'splitter', connectionPoints: [] });
+
+    const spacing = 20, width = 60, height = (numOutputs - 1) * spacing;
+    const boxSize = 15;
+    const fontSize = 10;
+
+    // Punto de conexión de entrada
+    group.attrs.connectionPoints.push({ x: 0, y: 0, index: 0 });
+
+    // Hitbox y forma del splitter
+    const hitbox = new Konva.Rect({ x: 0, y: -height / 2, width: width, height: height, fill: 'transparent' });
+    group.add(hitbox);
+    group.add(new Konva.Line({
+        points: [0, 0, width, -height / 2, width, height / 2],
+        closed: true,
+        fill: 'white',
+        stroke: 'black',
+        strokeWidth: 2,
+        listening: false
+    }));
+
+    // Círculo de entrada
+    group.add(new Konva.Circle({ x: 0, y: 0, radius: 5, fill: 'black', listening: false }));
+
+    // ===================================================================
+    // === PUERTOS DE SALIDA CON CUADRADOS NUMERADOS Y DESCRIPCIÓN ======
+    // ===================================================================
+    for (let i = 0; i < numOutputs; i++) {
+        const y = -height / 2 + i * spacing;
+
+        // ✅ CADA PUERTO TIENE SU PROPIO CAMPO description
+        group.attrs.connectionPoints.push({ 
+            x: width, 
+            y: y, 
+            index: i + 1,
+            description: '' // 👈 Comentario individual por puerto
+        });
+
+        // Cuadrado numerado
+        const rect = new Konva.Rect({
+            x: width - boxSize / 2,
+            y: y - boxSize / 2,
+            width: boxSize,
+            height: boxSize,
+            fill: 'white',
+            stroke: 'black',
+            strokeWidth: 2,
+            listening: true // ✅ IMPORTANTE: Para poder hacer doble clic
+        });
+        group.add(rect);
+
+        // Número dentro del cuadrado
+        const numberText = new Konva.Text({
+            x: width - boxSize / 2,
+            y: y - boxSize / 2,
+            width: boxSize,
+            height: boxSize,
+            text: (i + 1).toString(),
+            fontSize: fontSize,
+            fill: 'black',
+            align: 'center',
+            verticalAlign: 'middle',
+            listening: false
+        });
+        group.add(numberText);
+    }
+
+    // ===================================================================
+    // === DESCRIPCIÓN GENERAL DEL SPLITTER (LA QUE YA TENÍAS) ==========
+    // ===================================================================
+    const descriptionText = new Konva.Text({
+        x: width / 2,
+        y: (height / 2) + 8,
+        text: '',
+        fontSize: 11,
+        fontFamily: 'Arial, sans-serif',
+        fontStyle: 'italic',
+        fill: '#555555',
+        width: width + 20,
+        align: 'center',
+        offsetX: (width + 20) / 2,
+        name: 'description_text'
+    });
+    group.add(descriptionText);
+
+    // ===================================================================
+    // === EVENTO DE DOBLE CLIC EN EL GRUPO (DESCRIPCIÓN GENERAL) =======
+    // ===================================================================
+    group.on('dblclick dbltap', () => {
+        const oldDescription = group.attrs.description || '';
+        const newDescription = prompt("Descripción General del Splitter:", oldDescription);
+
+        if (newDescription !== null) {
+            group.setAttr('description', newDescription);
+            descriptionText.text(newDescription);
+            mainLayer.draw();
+        }
+    });
+
+    // ===================================================================
+    // === NUEVO: EVENTOS DE DOBLE CLIC EN CADA PUERTO ==================
+    // ===================================================================
+    group.find('Rect').forEach((rect, index) => {
+        // Ignoramos el hitbox (índice 0)
+        if (index === 0) return;
+        
+        const portIndex = index; // El índice del puerto
+        
+        rect.on('dblclick dbltap', (e) => {
+            e.cancelBubble = true; // ✅ Evita que el evento suba al grupo
+            
+            const port = group.attrs.connectionPoints[portIndex];
+            if (!port) return;
+            
+            const oldDescription = port.description || '';
+            const newDescription = prompt(`Comentario para Puerto ${port.index}:`, oldDescription);
+            
+            if (newDescription !== null) {
+                port.description = newDescription;
+                displayPortComments(group);
+                mainLayer.draw();
+            }
+        });
+    });
+
+    // Eventos de movimiento
+    group.on('dragmove', () => updateConnectedLines(group));
+    group.on('transform', () => updateConnectedLines(group));
+
+    return group;
+}
+
+
+
+
+
+// 🆕 FUNCIÓN PARA MOSTRAR LOS COMENTARIOS DE CADA PUERTO
+function displayPortComments(splitterGroup) {
+    if (!splitterGroup) return;
+
+    // Primero, borramos todos los comentarios antiguos
+    splitterGroup.find('.port_comment_text').forEach(text => text.destroy());
+
+    const connectionPoints = splitterGroup.attrs.connectionPoints || [];
+    const width = 60;
+
+    connectionPoints.forEach(port => {
+        // Si el puerto tiene descripción y no es el de entrada (index 0)
+        if (port.description && port.index > 0) {
+            const commentText = new Konva.Text({
+                x: width + 20,
+                y: port.y - 6,
+                text: port.description,
+                fontSize: 10,
+                fontFamily: 'Arial, sans-serif',
+                fontStyle: 'italic',
+                fill: '#0066cc',
+                name: 'port_comment_text',
+                listening: false
+            });
+            splitterGroup.add(commentText);
+        }
+    });
 }
 
 
@@ -2650,7 +2937,7 @@ function updateLineHandles(line) {
     console.log("✅ Contenido cargado y centrado en la vista.");
 }
 
-function reconectarEventos() {
+@* function reconectarEventos() {
     if (!stage || !mainLayer) return;
 
     // Sincronizar el contador de IDs (esto ya estaba bien y se mantiene)
@@ -2766,7 +3053,141 @@ function reconectarEventos() {
     });
 
     console.log("🔗 Eventos, datos y listeners de línea reconectados correctamente. Total de conectores:", window.connectors.length);
+} *@
+
+function reconectarEventos() {
+    if (!stage || !mainLayer) return;
+
+    // Sincronizar el contador de IDs
+    let maxId = -1;
+    mainLayer.find('.cable, .splitter').forEach(group => {
+        const id = group.id();
+        if (id) {
+            const numericPart = parseInt(id.split('_')[1], 10);
+            if (!isNaN(numericPart) && numericPart > maxId) {
+                maxId = numericPart;
+            }
+        }
+    });
+    nodeIdCounter = maxId + 1;
+    console.log(`✅ Contador de IDs sincronizado. El próximo ID será: ${nodeIdCounter}`);
+
+    // Limpiar manejadores fantasma
+    mainLayer.find('.line_handle').forEach(handle => handle.destroy());
+
+    // Reconectar listeners de líneas
+    window.connectors = [];
+    mainLayer.find('.connector').forEach(connector => {
+        window.connectors.push(connector);
+        attachPointAddingListener(connector);
+    });
+
+    // Reconstruir eventos para CABLES y SPLITTERS
+    mainLayer.find('.cable, .splitter').forEach(group => {
+        const isChildOfBlock = group.getParent() && group.getParent().hasName('cable_block');
+
+        if (!isChildOfBlock) {
+            group.draggable(true);
+            group.off('dragmove transform');
+            group.on('dragmove', () => updateConnectedLines(group));
+            group.on('transform', () => updateConnectedLines(group));
+        } else {
+            group.draggable(false);
+        }
+
+        // Reconstruir connectionPoints para CABLES (sin cambios)
+        if (group.hasName('cable')) {
+            if (!group.attrs.connectionPoints || group.attrs.connectionPoints.length === 0) {
+                console.warn(`⚠️ Reconstruyendo connectionPoints para el cable ${group.id()}`);
+                group.attrs.connectionPoints = [];
+                const numStrands = group.attrs.strandColors.length;
+                const firstLine = group.findOne('Line');
+                const direction = (firstLine && firstLine.points()[2] > 0) ? 'right' : 'left';
+                const directionMultiplier = (direction === 'left') ? -1 : 1;
+                const verticalSpacing = 15, cableWidth = 30, circleRadius = 8;
+                const finalX = cableWidth * directionMultiplier;
+                const circleX = finalX + (circleRadius * directionMultiplier);
+                const totalHeight = (numStrands - 1) * verticalSpacing;
+                const startY = -totalHeight / 2;
+                for (let i = 0; i < numStrands; i++) {
+                    const currentY = startY + (i * verticalSpacing);
+                    const strandColor = group.attrs.strandColors[i];
+                    group.attrs.connectionPoints.push({ x: circleX, y: currentY, color: strandColor, index: i });
+                }
+            }
+        }
+    });
+
+    // ===================================================================
+    // === RECONECTAR EVENTOS PARA SPLITTERS CON COMENTARIOS POR PUERTO =
+    // ===================================================================
+    mainLayer.find('.splitter').forEach(group => {
+        // 1. Reconectar evento de doble clic en el GRUPO (descripción general)
+        group.off('dblclick dbltap');
+        group.on('dblclick dbltap', () => {
+            const oldDescription = group.attrs.description || '';
+            const newDescription = prompt("Editar Descripción General del Splitter:", oldDescription);
+            if (newDescription !== null) {
+                group.setAttr('description', newDescription);
+                const textNode = group.findOne('.description_text');
+                if (textNode) {
+                    textNode.text(newDescription);
+                }
+                mainLayer.draw();
+            }
+        });
+
+        // 2. Reconectar eventos de doble clic en cada PUERTO
+        group.find('Rect').forEach((rect, index) => {
+            if (index === 0) return; // Ignorar hitbox
+            
+            const portIndex = index;
+            rect.off('dblclick dbltap'); // Limpiar eventos anteriores
+            
+            rect.on('dblclick dbltap', (e) => {
+                e.cancelBubble = true;
+                const port = group.attrs.connectionPoints[portIndex];
+                if (!port) return;
+                
+                const oldDescription = port.description || '';
+                const newDescription = prompt(`Comentario para Puerto ${port.index}:`, oldDescription);
+                
+                if (newDescription !== null) {
+                    port.description = newDescription;
+                    displayPortComments(group);
+                    mainLayer.draw();
+                }
+            });
+        });
+
+        // 3. ✅ MOSTRAR los comentarios guardados en el JSON
+        displayPortComments(group);
+    });
+
+    // Reconectar eventos de los bloques de cables
+    mainLayer.find('.cable_block').forEach(blockGroup => {
+        blockGroup.draggable(true);
+        blockGroup.off('dragmove transform');
+        blockGroup.on('dragmove transform', () => {
+            blockGroup.find('.cable').forEach(singleCable => {
+                updateConnectedLines(singleCable);
+            });
+        });
+    });
+
+    // Reconectar eventos generales del stage
+    stage.off('click tap');
+    stage.on('click tap', (e) => {
+        if (currentMode === 'select') {
+            handleSelection(e);
+        } else {
+            handleLineDrawing(e);
+        }
+    });
+
+    console.log("🔗 Eventos reconectados correctamente. Total de conectores:", window.connectors.length);
 }
+
 
 
  

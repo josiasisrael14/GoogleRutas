@@ -11,10 +11,12 @@ public class ElementService : IElementService
 {
     private ILogger<ElementService> _logger;
     private readonly ApplicationDbContext _context;
-    public ElementService(ApplicationDbContext context, ILogger<ElementService> logger)
+    private readonly IConfiguration _configuration;
+    public ElementService(ApplicationDbContext context, ILogger<ElementService> logger, IConfiguration configuration)
     {
         _context = context;
         _logger = logger;
+        _configuration = configuration;
     }
 
     public async Task Add(ElementViewModel elementViewModel)
@@ -89,84 +91,213 @@ public class ElementService : IElementService
     }
 
     // Método para procesar iconos nuevos
-    private async Task<string> ProcessNewIcon(ElementViewModel elementViewModel)
-    {   //aqui vamos a concantenar 
-        var fileName = Guid.NewGuid().ToString() + Path.GetExtension(elementViewModel.IconoFile.FileName);
-        //vamos a combinar la ruta actual del directorio con la carpeta wwwroot/img
-        var folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot/img");
+    // private async Task<string> ProcessNewIcon(ElementViewModel elementViewModel)
+    // {   //aqui vamos a concantenar 
+    //     var fileName = Guid.NewGuid().ToString() + Path.GetExtension(elementViewModel.IconoFile.FileName);
+    //     //vamos a combinar la ruta actual del directorio con la carpeta wwwroot/img
+    //     var folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot/img");
 
-        //si no existe la carpeta la crea uando directory.createDirectory
+    //     //si no existe la carpeta la crea uando directory.createDirectory
+    //     if (!Directory.Exists(folderPath))
+    //         Directory.CreateDirectory(folderPath);
+
+    //     //combino la ruta de la carpeta con el nombre del archivo
+    //     var filePath = Path.Combine(folderPath, fileName);
+    //     //si la extension es un arichivo svg entponces aplico el color al svg 
+    //     if (Path.GetExtension(elementViewModel.IconoFile.FileName).ToLower() == ".svg")
+    //     {
+    //         //creoq ue un streamreader para leer el archivo que se cargo en iconofile
+    //         using (var reader = new StreamReader(elementViewModel.IconoFile.OpenReadStream()))
+    //         {
+    //             //lee todos el texto del archivo svg y lo guarda en la variable svgcontent
+    //             var svgContent = await reader.ReadToEndAsync();
+    //             // llamao a la funcion applyColor y le paso el svgcontent y el color que se selecciono
+    //             svgContent = ApplyColorToSvg(svgContent, elementViewModel.IconColor);
+    //             //luego escribo el contenido del svg ya modificado con el nuevo color en la ruta del archivo
+    //             await File.WriteAllTextAsync(filePath, svgContent);
+    //         }
+    //     }
+    //     else
+    //     {
+    //         using (var stream = new FileStream(filePath, FileMode.Create))
+    //         {
+    //             await elementViewModel.IconoFile.CopyToAsync(stream);
+    //         }
+    //     }
+
+    //     return "/img/" + fileName;
+    // }
+
+
+    private async Task<string> ProcessNewIcon(ElementViewModel elementViewModel)
+    {
+        // --- PASO 1: OBTENER LA RUTA FÍSICA SEGURA ---
+        // Lee la ruta "C:\\AplicacionContenido\\icono" desde el archivo appsettings.json
+        var folderPath = _configuration["RutaContenidoIconos"];
+
+        // Si la ruta no está configurada, es un error grave. Detenemos la ejecución.
+        if (string.IsNullOrEmpty(folderPath))
+        {
+            _logger.LogError("La ruta 'RutaContenidoIconos' no está configurada en appsettings.json");
+            throw new Exception("Error de configuración del servidor.");
+        }
+
+        // --- PASO 2: PREPARAR EL NOMBRE DEL NUEVO ARCHIVO ---
+        // Crea un nombre de archivo único y aleatorio (un GUID) para evitar colisiones.
+        // Mantiene la extensión original del archivo subido (ej: ".svg", ".png").
+        var fileName = Guid.NewGuid().ToString() + Path.GetExtension(elementViewModel.IconoFile.FileName);
+
+        // Si la carpeta física (ej: C:\AplicacionContenido\icono) no existe, la crea.
         if (!Directory.Exists(folderPath))
             Directory.CreateDirectory(folderPath);
 
-        //combino la ruta de la carpeta con el nombre del archivo
+        // Combina la ruta de la carpeta con el nuevo nombre para obtener la ruta completa del archivo.
+        // ej: "C:\\AplicacionContenido\\icono\\tu-guid-aqui.svg"
         var filePath = Path.Combine(folderPath, fileName);
-        //si la extension es un arichivo svg entponces aplico el color al svg 
+
+
+        // --- PASO 3: PROCESAR Y GUARDAR EL ARCHIVO ---
+        // Comprueba si el archivo subido es un SVG.
         if (Path.GetExtension(elementViewModel.IconoFile.FileName).ToLower() == ".svg")
         {
-            //creoq ue un streamreader para leer el archivo que se cargo en iconofile
+            // SI ES UN SVG: Lo leemos como texto para poder aplicarle el color.
             using (var reader = new StreamReader(elementViewModel.IconoFile.OpenReadStream()))
             {
-                //lee todos el texto del archivo svg y lo guarda en la variable svgcontent
+                // Lee todo el contenido del archivo SVG a una variable de texto.
                 var svgContent = await reader.ReadToEndAsync();
-                // llamao a la funcion applyColor y le paso el svgcontent y el color que se selecciono
+
+                // Llama a tu método helper para modificar el SVG y añadirle el atributo fill="color".
                 svgContent = ApplyColorToSvg(svgContent, elementViewModel.IconColor);
-                //luego escribo el contenido del svg ya modificado con el nuevo color en la ruta del archivo
+
+                // Escribe el contenido del SVG ya modificado en el nuevo archivo.
                 await File.WriteAllTextAsync(filePath, svgContent);
             }
         }
         else
         {
+            // SI NO ES UN SVG (es PNG, JPG, etc.): No podemos aplicarle color.
+            // Simplemente copiamos el archivo tal cual a la nueva ubicación.
             using (var stream = new FileStream(filePath, FileMode.Create))
             {
                 await elementViewModel.IconoFile.CopyToAsync(stream);
             }
         }
 
-        return "/img/" + fileName;
+        // --- PASO 4: DEVOLVER LA URL VIRTUAL ---
+        // Devuelve la ruta que se guardará en la base de datos y que usará el navegador.
+        // ej: "/contenido-iconos/tu-guid-aqui.svg"
+        return "/contenido-iconos/" + fileName;
     }
 
+
+
+
     // NUEVO MÉTODO - Regenerar SVG con nuevo color
+    // private async Task<string> RegenerateIconWithNewColor(string existingIconUrl, string newColor)
+    // {
+    //     try
+    //     {
+    //         // Obtener la ruta física del archivo actual
+    //         var currentFilePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot" + existingIconUrl);
+
+    //         if (!File.Exists(currentFilePath))
+    //             return existingIconUrl; // Si no existe, mantener la URL actual
+
+    //         // Leer el contenido SVG actual
+    //         var svgContent = await File.ReadAllTextAsync(currentFilePath);
+
+    //         // Generar nuevo nombre de archivo para evitar caché
+    //         var newFileName = Guid.NewGuid().ToString() + ".svg";
+    //         var folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot/img");
+    //         var newFilePath = Path.Combine(folderPath, newFileName);
+
+    //         // Aplicar el nuevo color
+    //         svgContent = ApplyColorToSvg(svgContent, newColor);
+
+    //         // Guardar con nuevo nombre
+    //         await File.WriteAllTextAsync(newFilePath, svgContent);
+
+    //         // Opcional: eliminar archivo anterior para no acumular archivos
+    //         try
+    //         {
+    //             File.Delete(currentFilePath);
+    //         }
+    //         catch
+    //         {
+    //             // Ignorar errores al eliminar archivo anterior
+    //         }
+
+    //         return "/img/" + newFileName;
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         _logger.LogError(ex, "Error al regenerar icono con nuevo color");
+    //         return existingIconUrl; // En caso de error, mantener la URL actual
+    //     }
+    // }
+
+
+
     private async Task<string> RegenerateIconWithNewColor(string existingIconUrl, string newColor)
     {
         try
         {
-            // Obtener la ruta física del archivo actual
-            var currentFilePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot" + existingIconUrl);
+            // --- PASO 1: OBTENER LA RUTA FÍSICA SEGURA ---
+            var folderPath = _configuration["RutaContenidoIconos"];
 
+            if (string.IsNullOrEmpty(folderPath))
+            {
+                _logger.LogError("La ruta 'RutaContenidoIconos' no está configurada en appsettings.json");
+                throw new Exception("Error de configuración del servidor.");
+            }
+
+            // --- PASO 2: CONSTRUIR LA RUTA FÍSICA DEL ARCHIVO ANTIGUO ---
+            // Extrae solo el nombre del archivo de la URL virtual.
+            // ej: de "/contenido-iconos/archivo-viejo.svg" obtiene "archivo-viejo.svg"
+            var existingFileName = Path.GetFileName(existingIconUrl);
+
+            // Combina la ruta de la carpeta con el nombre del archivo antiguo.
+            // ej: "C:\\AplicacionContenido\\icono\\archivo-viejo.svg"
+            var currentFilePath = Path.Combine(folderPath, existingFileName);
+
+            // Si por alguna razón el archivo antiguo no existe, no hacemos nada para evitar un error.
             if (!File.Exists(currentFilePath))
-                return existingIconUrl; // Si no existe, mantener la URL actual
+                return existingIconUrl; // Devuelve la URL original.
 
-            // Leer el contenido SVG actual
+            // --- PASO 3: LEER EL SVG ANTIGUO Y PREPARAR EL NUEVO ---
+            // Lee todo el contenido del archivo SVG existente.
             var svgContent = await File.ReadAllTextAsync(currentFilePath);
 
-            // Generar nuevo nombre de archivo para evitar caché
+            // Crea un nuevo nombre de archivo único para el ícono recoloreado.
             var newFileName = Guid.NewGuid().ToString() + ".svg";
-            var folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot/img");
             var newFilePath = Path.Combine(folderPath, newFileName);
 
-            // Aplicar el nuevo color
+            // --- PASO 4: APLICAR COLOR, GUARDAR NUEVO ARCHIVO Y BORRAR EL ANTIGUO ---
+            // Llama a tu método helper para aplicarle el nuevo color al contenido del SVG.
             svgContent = ApplyColorToSvg(svgContent, newColor);
 
-            // Guardar con nuevo nombre
+            // Guarda el SVG modificado con el nuevo nombre de archivo.
             await File.WriteAllTextAsync(newFilePath, svgContent);
 
-            // Opcional: eliminar archivo anterior para no acumular archivos
+            // Intenta eliminar el archivo antiguo para no acumular basura.
+            // Lo ponemos en un try-catch por si falla (ej: por permisos), para que no rompa toda la operación.
             try
             {
                 File.Delete(currentFilePath);
             }
-            catch
+            catch (Exception ex)
             {
-                // Ignorar errores al eliminar archivo anterior
+                _logger.LogWarning(ex, $"No se pudo eliminar el archivo de ícono antiguo: {currentFilePath}");
             }
 
-            return "/img/" + newFileName;
+            // --- PASO 5: DEVOLVER LA NUEVA URL VIRTUAL ---
+            // Devuelve la nueva ruta que se actualizará en la base de datos.
+            return "/contenido-iconos/" + newFileName;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al regenerar icono con nuevo color");
-            return existingIconUrl; // En caso de error, mantener la URL actual
+            return existingIconUrl; // En caso de cualquier error, devuelve la URL original para no romper nada.
         }
     }
 
