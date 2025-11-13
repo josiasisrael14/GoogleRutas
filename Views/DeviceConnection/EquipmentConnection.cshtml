@@ -1,0 +1,264 @@
+@model GoogleRuta.ViewModels.EquipmentConnectionViewModel
+
+@{
+    ViewData["Title"] = "Conexión de Equipos";
+}
+@section Styles
+{
+    <style>
+        .action-icon {
+            font-size: 1.25rem;
+            margin: 0 5px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: transform 0.2s;
+        }
+
+        .action-icon:hover {
+            transform: scale(1.2);
+        }
+
+        .disconnect-icon {
+            color: #ffc107;
+            /* Naranja para desconectar */
+        }
+
+        .delete-icon {
+            color: #dc3545;
+            /* Rojo para eliminar */
+        }
+    </style>
+}
+
+<div class="mb-4">
+    <h1 class="display-4">@ViewData["Title"]</h1>
+    <p class="lead">Administre las conexiones entre sus switches y routers.</p>
+</div>
+
+
+<div class="mb-3">
+    <button class="btn btn-primary" data-toggle="modal" data-target="#connectionModal">
+        <i class="fas fa-plus mr-2"></i>Nueva Conexión
+    </button>
+</div>
+
+<!-- Modal para Crear/Editar Conexión -->
+<div class="modal fade" id="connectionModal" tabindex="-1" role="dialog" aria-labelledby="connectionModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="connectionModalLabel">Conectar Dispositivos</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="connectionForm">
+                    <input type="hidden" id="connectionId" />
+
+                    <div class="form-group">
+                        <label for="switchSelect">Switch <span class="text-danger">*</span></label>
+                        <select id="switchSelect" class="form-control" required>
+                            <option value="">-- Seleccione un Switch --</option>
+                            @foreach (var sw in Model.AllSwitches)
+                            {
+                                <option value="@sw.Id">@sw.Name</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="routerSelect">Router a Conectar <span class="text-danger">*</span></label>
+                        <select id="routerSelect" class="form-control" required>
+                            <option value="">-- Seleccione un Router --</option>
+                            @foreach (var router in Model.AllRouters)
+                            {
+                                <option value="@router.Id">@router.Name</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="portNumber">Número de Puerto <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="portNumber" placeholder="Ej: 12" required
+                                    min="1">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="groupNumber">Número de Grupo/Fila <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="groupNumber" placeholder="Ej: 1"
+                                    >
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" id="saveConnection">Guardar Conexión</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de Conexiones Existentes -->
+<table id="connectionsTable" class="display table table-striped table-bordered" style="width:100%">
+    <thead>
+        <tr>
+            <th>Id</th>
+            <th>Switch</th>
+            <th>Ubicación del Puerto</th>
+            <th>Router Conectado</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var conn in Model.Connections)
+        {
+            <tr>
+                <td>@conn.Id</td>
+                <td>@conn.SwitchName</td>
+                <td>Fila @conn.GroupNumber / Puerto @conn.PortNumber</td>
+                <td>@conn.RouterName</td>
+                <td class="text-center">
+                    @if (conn.RouterId != null)
+                    {
+                        <a href="#" class="action-icon disconnect-icon" title="Desconectar Router"
+                            onclick="return disconnectDevice('@conn.Id')">
+                            <i class="fas fa-unlink"></i>
+                        </a>
+                    }
+                    <a href="#" class="action-icon delete-icon" title="Eliminar Puerto"
+                        onclick="return confirmDelete('@conn.Id')">
+                        <i class="fas fa-trash-alt"></i>
+                    </a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            $('#connectionsTable').DataTable({
+                responsive: true,
+                language: {
+                    url: "//cdn.datatables.net/plug-ins/1.10.21/i18n/Spanish.json"
+                }
+            });
+
+            $('#saveConnection').click(function () {
+                const dataToSend = {
+                    Id: $('#connectionId').val() ? parseInt($('#connectionId').val()) : 0,
+                    SwitchsId: parseInt($('#switchSelect').val()),
+                    RouterId: parseInt($('#routerSelect').val()),
+                    PortNumber: parseInt($('#portNumber').val()),
+                    //GroupNumber: parseInt($('#groupNumber').val())
+                };
+
+                if (!dataToSend.SwitchsId || !dataToSend.RouterId || !dataToSend.PortNumber) {
+                    Swal.fire('Campos incompletos', 'Por favor, complete todos los campos obligatorios.', 'warning');
+                    return;
+                }
+
+                $.ajax({
+                    url: '/DeviceConnection/ConnectDevices',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(dataToSend),
+                    success: function (response) {
+                        if (response.success) {
+                            Swal.fire('¡Éxito!', response.message, 'success').then(() => {
+                                window.location.reload();
+                            });
+                        } else {
+                            Swal.fire('Error', response.message, 'error');
+                        }
+                    },
+                    error: function (xhr) {
+                        const errorMsg = xhr.responseJSON ? xhr.responseJSON.message : 'Hubo un error al procesar la solicitud.';
+                        Swal.fire('¡Error!', errorMsg, 'error');
+                    }
+                });
+            });
+
+            $('#connectionModal').on('hidden.bs.modal', function () {
+                $('#connectionForm')[0].reset();
+                $('#connectionId').val('');
+            });
+        });
+
+        function disconnectDevice(connectionId) {
+            Swal.fire({
+                title: '¿Desconectar Router?',
+                text: "El puerto quedará libre para otra conexión.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Sí, desconectar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: '/DeviceConnection/DeleteConnection/'+connectionId,
+                        type: 'DELETE',
+                        contentType: 'application/json',
+                        data: JSON.stringify({ Id: parseInt(connectionId), RouterId: null }), // Enviamos el ID del router como nulo
+                        success: function (response) {
+                            if (response.success) {
+                                Swal.fire('¡Desconectado!', 'El router ha sido desconectado del puerto.', 'success').then(() => {
+                                    window.location.reload();
+                                });
+                            } else {
+                                Swal.fire('Error', response.message, 'error');
+                            }
+                        },
+                        error: function () {
+                            Swal.fire('¡Error!', 'No se pudo completar la solicitud.', 'error');
+                        }
+                    });
+                }
+            });
+            return false;
+        }
+
+        function confirmDelete(connectionId) {
+            Swal.fire({
+                title: '¿Eliminar este Puerto?',
+                text: "¡Esta acción eliminará la definición del puerto permanentemente y no se puede revertir!",
+                icon: 'error',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Sí, ¡eliminar!',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: '/DeviceConnection/DeleteConnection/' + connectionId,
+                        type: 'DELETE',
+                        success: function (response) {
+                            if (response.success) {
+                                Swal.fire('¡Eliminado!', response.message, 'success').then(() => {
+                                    window.location.reload();
+                                });
+                            } else {
+                                Swal.fire('Error', response.message, 'error');
+                            }
+                        },
+                        error: function () {
+                            Swal.fire('¡Error!', 'No se pudo eliminar el puerto.', 'error');
+                        }
+                    });
+                }
+            });
+            return false;
+        }
+    </script>
+}

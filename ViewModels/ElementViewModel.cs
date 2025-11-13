@@ -11,5 +11,7 @@ namespace GoogleRuta.ViewModels
         public string Name { get; set; }
         public string? IconoUrl { get; set; }
         public IFormFile IconoFile { get; set; }
+        public string? IconColor { get; set; }
+         public string? IconoSvgContent { get; set; }
     }
 }

@@ -48,6 +48,10 @@
               "target": "Package",
               "version": "[9.0.7, )"
             },
+            "Microsoft.CodeAnalysis.Metrics": {
+              "target": "Package",
+              "version": "[4.14.0, )"
+            },
             "Microsoft.EntityFrameworkCore": {
               "target": "Package",
               "version": "[9.0.7, )"
@@ -61,6 +65,10 @@
             "Microsoft.EntityFrameworkCore.SqlServer": {
               "target": "Package",
               "version": "[9.0.7, )"
+            },
+            "SixLabors.ImageSharp": {
+              "target": "Package",
+              "version": "[3.1.11, )"
             }
           },
           "imports": [

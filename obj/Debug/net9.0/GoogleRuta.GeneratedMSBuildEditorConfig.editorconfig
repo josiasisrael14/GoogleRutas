@@ -32,8 +32,24 @@ build_property.EnableCodeStyleSeverity =
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQ29sb3JUcmFjZXNcSW5kZXguY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/USUARIO/Desktop/GoogleRuta/GoogleRuta/Views/ConnectionTelecom/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcQ29ubmVjdGlvblRlbGVjb21cSW5kZXguY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/USUARIO/Desktop/GoogleRuta/GoogleRuta/Views/DeviceConnection/EquipmentConnection.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRGV2aWNlQ29ubmVjdGlvblxFcXVpcG1lbnRDb25uZWN0aW9uLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/USUARIO/Desktop/GoogleRuta/GoogleRuta/Views/DeviceConnection/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRGV2aWNlQ29ubmVjdGlvblxJbmRleC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/USUARIO/Desktop/GoogleRuta/GoogleRuta/Views/Element/Index.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRWxlbWVudFxJbmRleC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/USUARIO/Desktop/GoogleRuta/GoogleRuta/Views/Elfa/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcRWxmYVxJbmRleC5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/USUARIO/Desktop/GoogleRuta/GoogleRuta/Views/Home/Index.cshtml]
@@ -44,6 +60,14 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcSG9tZVxQcml2YWN5LmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/USUARIO/Desktop/GoogleRuta/GoogleRuta/Views/Odf/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcT2RmXEluZGV4LmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/USUARIO/Desktop/GoogleRuta/GoogleRuta/Views/Odl/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcT2RsXEluZGV4LmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/USUARIO/Desktop/GoogleRuta/GoogleRuta/Views/Project/Diseño.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUHJvamVjdFxEaXNlw7FvLmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
@@ -52,12 +76,20 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUHJvamVjdFxJbmRleC5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
+[C:/Users/USUARIO/Desktop/GoogleRuta/GoogleRuta/Views/Router/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUm91dGVyXEluZGV4LmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
 [C:/Users/USUARIO/Desktop/GoogleRuta/GoogleRuta/Views/Shared/Error.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXEVycm9yLmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/USUARIO/Desktop/GoogleRuta/GoogleRuta/Views/Shared/_ValidationScriptsPartial.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU2hhcmVkXF9WYWxpZGF0aW9uU2NyaXB0c1BhcnRpYWwuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/USUARIO/Desktop/GoogleRuta/GoogleRuta/Views/Switch/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcU3dpdGNoXEluZGV4LmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
 [C:/Users/USUARIO/Desktop/GoogleRuta/GoogleRuta/Views/_ViewImports.cshtml]

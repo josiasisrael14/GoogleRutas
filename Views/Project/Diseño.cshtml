@@ -9,9 +9,11 @@
     //var initialLng = ViewData["InitialLng"] as double?;
 
 
-    var processedCoordsJson = TempData["ProcessedCoordinatess"] as string ?? "[]";
+    //var processedCoordsJson = TempData["ExistingSegments"] as string ?? "[]";
     var projectId = TempData["ProjectId"] as int?;
     var nameTemp = TempData["Name"] as string;
+    // Leemos los segmentos que guardamos en el controlador
+    //var existingSegmentsJson = TempData["ExistingSegments"] as string ?? "[]";
 
     //color desde el backend
     //tomo cada objeto de la lista , extraigo solo el codigo del color
@@ -20,6 +22,50 @@
     ? Model.ColorTraces.Select(c => c.Color).ToList()
     : new List<string> { "#FF0000", "#00FF00", "#0000FF" };
 }
+
+<style>
+    /* 1. Define nuestra clase personalizada para el modal-dialog */
+    .modal-dialog.modal-fullscreen-bs4 {
+        width: 100%;
+        max-width: none;
+        /* Anula el max-width de Bootstrap 4 */
+        height: 100%;
+        margin: 0;
+    }
+
+    /* 2. Asegura que el contenido del modal llene el dialog */
+    .modal-dialog.modal-fullscreen-bs4 .modal-content {
+        height: 100%;
+        border-radius: 0;
+        /* Opcional: quita los bordes redondeados en pantalla completa */
+        border: none;
+        display: flex;
+        /* ¡Clave! Usa Flexbox para distribuir el espacio */
+        flex-direction: column;
+    }
+
+    /* 3. ¡LA MAGIA! Fuerza al modal-body a estirarse */
+    .modal-dialog.modal-fullscreen-bs4 .modal-body {
+        flex-grow: 1;
+        /* Permite que el cuerpo crezca y ocupe el espacio sobrante */
+        overflow-y: auto;
+        /* Añade scroll si el contenido se desborda */
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* 4. Y que el contenedor de Konva llene el modal-body */
+    .modal-dialog.modal-fullscreen-bs4 #konva-container {
+        flex-grow: 1;
+        /* Ocupa todo el espacio disponible en el body */
+    }
+
+    #imageUploadInput {
+            display: none;
+        }
+     
+    
+</style>
 
 @* Este es el contenido de tu vista que se renderizará dentro de _Layout.cshtml *@
 
@@ -31,8 +77,134 @@
 
 </div>
 
+<div class="modal fade" id="elementModal" tabindex="-1" aria-labelledby="elementModalLabel" aria-hidden="true">
+    <!-- 1. Modal extra grande con la clase "modal-xl" -->
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="elementModalLabel">Lienzo de Diseño Profesional</h5>
+
+                <!-- Controles de dibujo se mantienen en la cabecera -->
+                <div class="ms-auto d-flex align-items-center">
+                    <label for="colorPicker" class="form-label mb-0 me-2 small">Color:</label>
+                    <input type="color" class="form-control form-control-sm me-3" id="colorPicker" value="#000000"
+                        style="width: 50px;">
+
+                    <label for="brushSize" class="form-label mb-0 me-2 small">Grosor:</label>
+                    <input type="range" class="form-range me-3" id="brushSize" min="1" max="10" value="2"
+                        style="width: 100px;">
+
+                    <button id="clearCanvasBtn" class="btn btn-sm btn-outline-danger">Limpiar Todo</button>
+
+                    <label for="imageUploadInput" class="btn btn-sm btn-outline-success ms-3">
+                            <i class="fas fa-upload me-2"></i>Subir Imagen
+                    </label>
+                        <!-- ✅ INPUT DE ARCHIVO OCULTO CON CSS -->
+                    <input type="file" id="imageUploadInput" accept="image/*">
+
+                    <!-- ✅ NUEVO BOTÓN PARA VER LA IMAGEN GUARDADA -->
+                    <button type="button" id="viewSavedImageBtn" class="btn btn-sm btn-outline-info ms-2" title="Ver imagen guardada">
+                       <i class="fas fa-eye"></i> <!-- Ícono de "ojo" para ver -->
+                    </button>
+                   
+
+                    <!-- ✅ Botón maximizar mejorado -->
+                    <button type="button" class="btn btn-sm btn-outline-secondary me-2" id="toggleFullscreenBtn"
+                        title="Maximizar pantalla completa">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                            class="bi bi-arrows-fullscreen" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd"
+                                d="M5.828 10.172a.5.5 0 0 0-.707 0L2 13.293V11.5a.5.5 0 0 0-1 0v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 0-1H2.707l3.121-3.121a.5.5 0 0 0 0-.707zM10.172 5.828a.5.5 0 0 0 .707 0L14 2.707V4.5a.5.5 0 0 0 1 0v-3a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0 0 1h1.793L10.172 5.121a.5.5 0 0 0 0 .707z" />
+                        </svg>
+                    </button>
+
+
+                </div>
+
+                <!-- 4. Botón de cierre estándar en la cabecera -->
+                <button type="button" class="btn-close ms-3" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+
+            <!-- 3. Cuerpo del modal con fondo gris claro para resaltar el lienzo -->
+            <div class="modal-body p-2" style="background-color: #f8f9fa; text-align: center;">
+
+                <!-- Barra de herramientas (sin cambios) -->
+                <div id="toolbar"
+                    class="mb-2 p-2 rounded d-flex justify-content-center align-items-center bg-light border-bottom">
+                    <div class="me-3 border-end pe-3">
+                        <span class="me-2 small">MODO:</span>
+                        <button id="selectModeBtn" class="btn btn-sm btn-primary"
+                            title="Modo Selección (Mover, Seleccionar, Borrar)">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                                class="bi bi-cursor-fill" viewBox="0 0 16 16">
+                                <path
+                                    d="M14.082 2.182a.5.5 0 0 1 .103.557L8.528 15.467a.5.5 0 0 1-.917-.007L5.57 10.694.803 8.652a.5.5 0 0 1-.006-.916l12.728-5.657a.5.5 0 0 1 .556.103z" />
+                            </svg>
+                        </button>
+                        <button id="drawModeBtn" class="btn btn-sm btn-outline-secondary"
+                            title="Modo Conector (Dibujar Líneas)">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                                class="bi bi-slash-lg" viewBox="0 0 16 16">
+                                <path fill-rule="evenodd"
+                                    d="M13.854 2.146a.5.5 0 0 1 0 .708l-11 11a.5.5 0 0 1-.708-.708l11-11a.5.5 0 0 1 .708 0z" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div id="componentGeneratorControls" class="d-flex align-items-center">
+                        <div class="me-3"><span class="me-2 small">CABLE:</span>
+                            <button class="btn btn-sm btn-outline-primary" data-strands="4">1x4</button>
+                            <button class="btn btn-sm btn-outline-primary" data-strands="5">1x5</button>
+                            <button class="btn btn-sm btn-outline-primary" data-strands="6">1x6</button>
+                            <button class="btn btn-sm btn-outline-primary" data-strands="8">1x8</button>
+                            <button class="btn btn-sm btn-outline-primary" data-strands="12">1x12</button>
+                            <button class="btn btn-sm btn-outline-danger" data-multi-cable="12x4">1x48</button>
+                            <button class="btn btn-sm btn-outline-danger" data-multi-cable="12x8">1x96</button>
+
+                            <button id="autoConnectBtn" class="btn btn-sm btn-info ms-3" title="Busca los dos últimos cables individuales (uno izquierdo y otro derecho) y conecta sus hilos por color.">
+                            <i class="fas fa-magic"></i> Conectar Últimos 2
+                            </button>
+                            
+                        </div>
+                        <div><span class="me-2 small">SPLITTER:</span>
+                            <button class="btn btn-sm btn-outline-success" data-splitter-out="4">1x4</button>
+                            <button class="btn btn-sm btn-outline-success" data-splitter-out="8">1x8</button>
+                            <button class="btn btn-sm btn-outline-success" data-splitter-out="16">1x16</button>
+                        </div>
+
+                        <button id="export-button">Exportar Diagrama (PNG)</button>
+                    </div>
+                </div>
+
+                <!-- 2. Contenedor del lienzo con fondo de cuadrícula  inline-block; -->
+                <div id="konva-container" style="
+                    border: 1px solid #ccc;
+                    inline-block;
+                    background-color: #ffffff;
+                    background-image:
+                        linear-gradient(#e0e0e0 1px, transparent 1px),
+                        linear-gradient(90deg, #e0e0e0 1px, transparent 1px);
+                    background-size: 20px 20px;">
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <!-- Se puede simplificar, ya que el cierre principal está en la cabecera -->
+                <button type="button" id="saveCanvasBtn" class="btn btn-primary">Guardar Diseño</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+@* <script src="https://unpkg.com/konva@9.3.0/konva.min.js"></script> *@
+<script src="https://cdn.jsdelivr.net/npm/konva@9/konva.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/konva-svg-export@1.0.0/konva-svg-export.min.js"></script>
+
 
 @section Scripts {
+
     <style>
         /* Estilos para el botón activo. Da feedback visual al usuario. */
         .custom-element-button.active {
@@ -50,48 +222,109 @@
             transform: scale(1.1);
             transition: transform 0.1s ease;
         }
+
+        .canvas-color-btn.active-canvas-color {
+            border: 2px solid #007bff !important;
+            box-shadow: 0 0 3px rgba(0, 123, 255, 0.5) !important;
+        }
+
+        .canvas-color-btn:hover {
+            transform: scale(1.05);
+            transition: transform 0.1s ease;
+        }
     </style>
 
     <script>
+
+        // ✅ NUEVO: Funciones para controlar el tamaño del modal
+        function maximizarModal() {
+            const modalDialog = document.querySelector('#elementModal .modal-dialog');
+            // Nos aseguramos de que esté en modo maximizado
+            if (!modalDialog.classList.contains('modal-fullscreen-bs4')) {
+                modalDialog.classList.add('modal-fullscreen-bs4');
+                modalDialog.classList.remove('modal-xl');
+                // Esperamos la animación CSS antes de redimensionar el lienzo
+                setTimeout(() => {
+                    if (window.resizeCanvasToContainer) { // Verificamos si la función existe
+                        window.resizeCanvasToContainer();
+                    }
+                }, 250);
+            }
+        }
+
+        function resetModalSize() {
+            const modalDialog = document.querySelector('#elementModal .modal-dialog');
+            // Nos aseguramos de que esté en modo normal (xl)
+            if (modalDialog.classList.contains('modal-fullscreen-bs4')) {
+                modalDialog.classList.remove('modal-fullscreen-bs4');
+                modalDialog.classList.add('modal-xl');
+                // Esperamos la animación CSS antes de redimensionar el lienzo
+                setTimeout(() => {
+                    if (window.resizeCanvasToContainer) {
+                        window.resizeCanvasToContainer();
+                    }
+                }, 250);
+            }
+        }
+
+        
+        //variable para rastrear la polilínea seleccionada
+        let selectedPolyline = null;
+
+        let isUpdateScheduled = false;
+
         var nameJs = '@(nameTemp ?? "")';
         console.log("ver name ", nameJs);
 
-        const currentProjectId = @(projectId.HasValue? projectId.Value.ToString() : "null");
-        console.log("ID del proyecto disponible en JS:", currentProjectId);
+        // Pasas los segmentos de polilínea
+        @* const existingSegments = JSON.parse(@Html.Raw(existingSegmentsJson));
+           console.log("Segmentos existentes cargados desde TempData:", existingSegments); *@
 
-        @{
+           const existingSegmentsJson = '@Html.Raw(TempData["ExistingSegments"] as string ?? "[]")';
+           const existingSegments = JSON.parse(existingSegmentsJson);
+           console.log("Segmentos existentes cargados desde TempData:", existingSegments);
+
+           const currentProjectId = @(projectId.HasValue? projectId.Value.ToString() : "null");
+           console.log("ID del proyecto disponible en JS:", currentProjectId);
+
+          @{
                 // Usamos LINQ para crear una nueva lista de objetos anónimos.
                 // Para cada elemento, copiamos sus propiedades y transformamos 'iconUrl'
                 // usando Url.Content() para generar una ruta válida para el navegador.
                 var elementTypesForJs = Model.ElementTypes.Select(e => new
                 {
                     id = e.Id,
-                                                                                                                        name = e.Name,
-                                                                                                                        iconUrl = Url.Content(e.IconoUrl) // <-- ¡Esta es la corrección!
+                    name = e.Name,                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+                    iconUrl = Url.Content(e.IconoUrl) // <-- ¡Esta es la corrección!
                 });
             }
 
-                                        // Ahora serializamos la nueva lista con las URLs corregidas.
-                                        const elementTypes = @Html.Raw(Json.Serialize(elementTypesForJs));
-        console.log("Tipos de Elementos (con URLs corregidas):", elementTypes);
+          // Ahora serializamos la nueva lista con las URLs corregidas.                                                                                                                                                                                                                                   
+         const elementTypes = @Html.Raw(Json.Serialize(elementTypesForJs));
+         console.log("Tipos de Elementos (con URLs corregidas):", elementTypes);
 
         //traer la lista de colores desde el contrrolador
         const availableColors =@Html.Raw(JsonSerializer.Serialize(colorList));
         console.log("🎨 Colores disponibles:", availableColors);
+
+        const availableColorsComplete = @Html.Raw(JsonSerializer.Serialize(Model.ColorTraces ?? new List<ColorTraces>()));
+        console.log("🎨 Colores disponibles:", availableColorsComplete);
 
         // El problema: existingElements es un STRING, no un Array.
         // La Solución: Convertimos (parseamos) el string a un Array de JavaScript real.
         // ======================================================================
         const existingElements = @Html.Raw(TempData["ExistingPlacedElements"] as string ?? "[]");
         console.log("ver elementos llegando a la vista diseño (YA PARSEADO):", existingElements);
-                        @*const existingElementsJson = '@Html.Raw(TempData["ExistingPlacedElements"] as string ?? "[]")';
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                @*const existingElementsJson = '@Html.Raw(TempData["ExistingPlacedElements"] as string ?? "[]")';
         const existingElements = JSON.parse(existingElementsJson);
         console.log("ver elementos llegando a la vista diseño (YA PARSEADO):", existingElements); *@
 
-            let currentPolygon = null;
+        let currentPolygon = null;
         let currentPolyLine = null;
         let currentPolygonCoords = [];
         let currentPolylineCoords = [];
+
+        let selectedColor = null;
 
         // Aquí guardaremos todos los elementos (postes, cajas, etc.) que el usuario coloque.
         let placedElements = [];
@@ -99,66 +332,100 @@
         let mapClickListener = null;
         // Agregamos una variable para guardar el tipo de elemento activo
         let activeElementType = null;
+        //tomo los datos del elemento para enviarlo al controlador dibujo
+        let selectedMapElementData = null;
+
+        // NUEVA VARIABLE GLOBAL: Array para almacenar múltiples polilíneas independientes
+        let polylineSegments = [];
+        let allMapMarkers = []; // <-- NUEVA LÍNEA: Para guardar los objetos de marcador visuales
+        let activeSegmentIndex = 0; // Índice del segmento actualmente seleccionado
 
         function initMap() {
+            console.log("Color inicial seleccionado:", selectedColor);
             let center;
-            // Procesar coordenadas de la base de datos con validación
-            const rawCoords = JSON.parse(@Html.Raw(JsonSerializer.Serialize(processedCoordsJson)));
-            const processedCoords = rawCoords.map(coord => ({
-                lat: parseFloat(coord.lat || coord.Lat || 0),
-                lng: parseFloat(coord.lng || coord.Lng || 0)
-            })).filter(coord =>
-                !isNaN(coord.lat) && !isNaN(coord.lng) &&
-                isFinite(coord.lat) && isFinite(coord.lng)
-            );
-
-            console.log("coordenadas procesadas", processedCoords)
-            console.log("ver lista pintar", processedCoords)
-
+            
             const mapCenterLat = parseFloat('@(Model.InitialLat.HasValue? Model.InitialLat.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) : "-13.44255087")');
             const mapCenterLng = parseFloat('@(Model.InitialLng.HasValue? Model.InitialLng.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) : "-76.1470107")');
+            
 
-            if (processedCoords.length > 0) {
-                center = { lat: processedCoords[0].lat, lng: processedCoords[0].lng };
+        if (existingSegments && existingSegments.length > 0 && existingSegments[0].Coordinates.length > 0)
+         {
+            const firstCoord = existingSegments[0].Coordinates[0];
+               // Comprueba si existe 'lat' (minúscula), si no, usa 'Lat' (mayúscula)
+             center = { 
+                lat: parseFloat(firstCoord.lat || firstCoord.Lat), 
+                lng: parseFloat(firstCoord.lng || firstCoord.Lng)
+            };
+         } 
+          else 
+          {
+            center = { lat: mapCenterLat, lng: mapCenterLng };
+         }
 
-            }
-            else {
-                center = { lat: mapCenterLat, lng: mapCenterLng };
-            }
+                         const map = new google.maps.Map(document.getElementById("map"),
+                        {
+                           zoom: 12,
+                            center: center,
+                            mapTypeId: "terrain",
+                            mapTypeControl: true,
+                             streetViewControl: true,
+                            fullscreenControl: true,
+                            gestureHandling: 'greedy' //para usar zoom solo con la rueda nomas
 
-            const map = new google.maps.Map(document.getElementById("map"), {
-                zoom: 12,
-                center: center,
-                mapTypeId: "terrain",
-                mapTypeControl: true,
-                streetViewControl: true,
-                fullscreenControl: true
-            });
+                        });
 
-            if (processedCoords.length > 0) {
-                const path = processedCoords.map(p => ({ lat: p.lat, lng: p.lng }));
+        if (existingSegments && existingSegments.length > 0) 
+        {
+            console.log(`Cargando ${existingSegments.length} segmentos desde TempData.`);
 
-                const polyline = new google.maps.Polyline({
-                    path: path,
-                    map: map,
-                    strokeColor: '#0000FF',
-                    strokeOpacity: 0.8,
-                    strokeWeight: 3,
-                    clickable: true,
-                    editable: true,
-                    zIndex: 1,
-                });
+             existingSegments.forEach(segment =>
+              {
+                // Usa la misma lógica de fallback para las coordenadas del path
+                const path = segment.Coordinates.map(c => ({ 
+                lat: parseFloat(c.lat || c.Lat), 
+                lng: parseFloat(c.lng || c.Lng)
+            }));
 
-                currentPolyLine = polyline;
-                setPolylineListeners(currentPolyLine);
-                updatePolylineCoords(currentPolyLine);
-            } else {
-                new google.maps.Marker({
-                    position: center,
-                    map: map,
-                    title: "Ubicación inicial"
-                });
-            }
+        // Crea una polilínea para ESTE segmento
+        const polyline = new google.maps.Polyline({
+            path: path,
+            map: map,
+            strokeColor: segment.Color || '#0000FF', // Usa el color del segmento, o uno por defecto
+            strokeOpacity: 0.8,
+            strokeWeight: 3,
+            clickable: true,
+            editable: true,
+            zIndex: 1,
+            segmentId: segment.SegmentId // Almacena su ID
+        });
+
+        // Añade los listeners para que sea editable y seleccionable
+        setPolylineListeners(polyline);
+        
+        // Añádelo a tu array global de segmentos
+        polylineSegments.push(polyline);
+        
+        // Guarda las coordenadas en el propio objeto de la línea
+        updatePolylineCoords(polyline);
+    });
+
+    console.log("Todos los segmentos de polilínea han sido cargados y dibujados.");
+
+    // MEJORA CLAVE: Seleccionar automáticamente el primer segmento para una mejor experiencia de usuario.
+    if (polylineSegments.length > 0) {
+        selectPolylineSegment(polylineSegments[0]);
+        console.log('Primer segmento de la lista auto-seleccionado.');
+    }
+
+
+}  else {
+    new google.maps.Marker({
+        position: center,
+        map: map,
+        title: "Ubicación inicial"
+    });
+}
+           
 
 
             //Dibujar los elementos(cajas,postes etc al cargar)
@@ -172,39 +439,48 @@
                         const location = { lat: element.Lat, lng: element.Lng };
                         console.log("Encontrado tipo de elemento, dibujando marcador en:", location);
                         // Reutilizamos la función que ya tienes para colocar marcadores
-                        placeMarker(location, elementType, map);
+                        placeMarker(location, elementType, map, element);
                     }
                 });
 
+                // ⭐ AGREGAR ESTA LÍNEA DESPUÉS DE CARGAR TODOS LOS ELEMENTOS:
+                 // Esperar un poco para que se carguen todos los marcadores y líneas
+                 setTimeout(() => {
+                  reconnectExistingMarkersToPolylines();
+                 }, 500);
+
             }
 
-            // --- FUNCIÓN DE LISTENERS MEJORADA CON BORRADO MANUAL ---
-            function setPolylineListeners(polyline) {
-                // Listeners para arrastrar y añadir puntos (estos suelen funcionar bien)
-                google.maps.event.addListener(polyline.getPath(), 'set_at', () => updatePolylineCoords(polyline));
-                google.maps.event.addListener(polyline.getPath(), 'insert_at', () => updatePolylineCoords(polyline));
 
-                // Listener para el evento de borrado que ya tenías (lo dejamos como respaldo)
-                google.maps.event.addListener(polyline.getPath(), 'remove_at', () => updatePolylineCoords(polyline));
+function setPolylineListeners(polyline) {
+    google.maps.event.addListener(polyline.getPath(), 'set_at', () => {
+        updatePolylineCoords(polyline);
+        updateAttachedMarkers(); // ⭐ SOLO AGREGAR ESTA LÍNEA
+    });
+    
+    google.maps.event.addListener(polyline.getPath(), 'insert_at', () => {
+        updatePolylineCoords(polyline);
+        updateAttachedMarkers(); // ⭐ SOLO AGREGAR ESTA LÍNEA
+    });
+    
+    google.maps.event.addListener(polyline.getPath(), 'remove_at', () => {
+        updatePolylineCoords(polyline);
+        updateAttachedMarkers(); // ⭐ SOLO AGREGAR ESTA LÍNEA
+    });
 
-                // *** LISTENER CLAVE PARA EL BORRADO MANUAL POR CLIC DERECHO ***
-                google.maps.event.addListener(polyline, 'rightclick', function (event) {
-                    // El evento 'rightclick' nos da información sobre dónde se hizo clic.
-                    // 'event.vertex' nos dirá el índice del vértice si se hizo clic en uno.
-                    if (event.vertex !== undefined && event.vertex !== null) {
-                        console.log(`Clic derecho detectado en el vértice: ${event.vertex}`);
+    // Tu código existente (no cambiar)
+    google.maps.event.addListener(polyline, 'rightclick', function (event) {
+        if (event.vertex !== undefined && event.vertex !== null) {
+            const path = polyline.getPath();
+            path.removeAt(event.vertex);
+        }
+    });
 
-                        // Obtenemos el path (la ruta) de la polilínea.
-                        const path = polyline.getPath();
+    google.maps.event.addListener(polyline, 'click', function () {
+        selectPolylineSegment(polyline);
+    });
+}
 
-                        // Eliminamos el vértice en ese índice.
-                        path.removeAt(event.vertex);
-
-                        // Nota: No es necesario llamar a updatePolylineCoords aquí, porque
-                        // removeAt dispara automáticamente el evento 'remove_at' que ya estamos escuchando.
-                    }
-                });
-            }
 
             function setPolygonListeners(polygon) {
                 google.maps.event.addListener(polygon.getPath(), 'set_at', () => updatePolygonCoords(polygon));
@@ -236,9 +512,43 @@
             drawingManager.setMap(map);
 
             google.maps.event.addListener(drawingManager, 'overlaycomplete', function (event) {
-                // Si se completa un dibujo de Google, nos aseguramos de que ninguno de nuestros botones esté activo.
-                deactivateCustomButtons();
-                if (event.type == google.maps.drawing.OverlayType.POLYGON) {
+    deactivateCustomButtons();
+    
+    if (event.type == google.maps.drawing.OverlayType.POLYLINE) {
+        // NO COMBINAR - Crear un nuevo segmento independiente
+        const newSegment = event.overlay;
+        
+        // Asignar ID único al segmento
+        const segmentId = `segment_${Date.now()}`;
+        newSegment.segmentId = segmentId;
+        
+        // Configurar el segmento
+        newSegment.setOptions({
+            strokeColor: selectedColor ? selectedColor.Color : '#0000FF',
+            strokeOpacity: 0.8,
+            strokeWeight: 3,
+            clickable: true,
+            editable: true,
+            zIndex: 1
+        });
+
+        // Agregar listeners específicos para este segmento
+        setPolylineListeners(newSegment);
+
+        //Capturamos las coordenadas iniciales justo al terminar de dibujar.
+        updatePolylineCoords(newSegment);
+        
+        // Agregar al array de segmentos
+        polylineSegments.push(newSegment);
+        activeSegmentIndex = polylineSegments.length - 1;
+        
+        // Seleccionar automáticamente el nuevo segmento
+        selectPolylineSegment(newSegment);
+        
+        console.log(`Nuevo segmento creado: ${segmentId}. Total de segmentos: ${polylineSegments.length}`);
+        
+        drawingManager.setDrawingMode(null);
+    } else if (event.type == google.maps.drawing.OverlayType.POLYGON) {
                     if (currentPolyLine) {
                         google.maps.event.clearInstanceListeners(currentPolyLine.getPath());
                         google.maps.event.clearInstanceListeners(currentPolyLine);
@@ -256,41 +566,33 @@
                     updatePolygonCoords(currentPolygon);
                     drawingManager.setDrawingMode(null);
 
-                } else if (event.type == google.maps.drawing.OverlayType.POLYLINE) {
-
-                    if (currentPolygon) {
-                        google.maps.event.clearInstanceListeners(currentPolygon.getPath());
-                        google.maps.event.clearInstanceListeners(currentPolygon);
-                        currentPolygon.setMap(null);
-                        currentPolygon = null;
-                        currentPolygonCoords = [];
-                    }
-
-                    const newPolylineSegment = event.overlay;
-                    let combinedPath = [];
-
-                    if (currentPolyLine) {
-                        google.maps.event.clearInstanceListeners(currentPolyLine.getPath());
-                        google.maps.event.clearInstanceListeners(currentPolyLine);
-                        combinedPath = currentPolyLine.getPath().getArray();
-                        currentPolyLine.setMap(null);
-                    }
-
-                    combinedPath = combinedPath.concat(newPolylineSegment.getPath().getArray());
-                    newPolylineSegment.setMap(null);
-
-                    const newCombinedPolyline = new google.maps.Polyline({
-                        path: combinedPath, map: map,
-                        strokeColor: '#0000FF', strokeOpacity: 0.8, strokeWeight: 3,
-                        clickable: true, editable: true, zIndex: 1,
-                    });
-
-                    currentPolyLine = newCombinedPolyline;
-                    setPolylineListeners(currentPolyLine);
-                    updatePolylineCoords(currentPolyLine);
-                    drawingManager.setDrawingMode(null);
                 }
-            });
+    
+    // La lógica para polígonos se mantiene igual...
+});
+
+// NUEVA FUNCIÓN: Seleccionar un segmento específico
+function selectPolylineSegment(segment) {
+    // Resetear estilos de todos los segmentos
+    polylineSegments.forEach(seg => {
+        seg.setOptions({
+            strokeWeight: 3,
+            strokeOpacity: 0.8
+        });
+    });
+    
+    // Resaltar el segmento seleccionado
+    segment.setOptions({
+        strokeWeight: 5,
+        strokeOpacity: 1.0
+    });
+    
+    selectedPolyline = segment;
+    activeSegmentIndex = polylineSegments.findIndex(seg => seg.segmentId === segment.segmentId);
+    
+    console.log(`Segmento seleccionado: ${segment.segmentId}`);
+}
+
 
             function updatePolygonCoords(polygon) {
                 const path = polygon.getPath();
@@ -302,94 +604,112 @@
             }
 
             function updatePolylineCoords(polyline) {
-                const path = polyline.getPath();
-                currentPolylineCoords = [];
-                path.getArray().forEach(function (latLng) {
-                    currentPolylineCoords.push({ lat: latLng.lat(), lng: latLng.lng() });
-                });
-                console.log("Coordenadas de la polilínea actualizadas:", currentPolylineCoords);
-            }
+    const path = polyline.getPath();
+    const coords = [];
+    path.getArray().forEach(function (latLng) {
+        coords.push({ lat: latLng.lat(), lng: latLng.lng() });
+    });
+    
+    // Guardar coordenadas específicas para este segmento
+    polyline.coordinates = coords;
+    
+    console.log(`Coordenadas actualizadas para segmento: ${polyline.segmentId}`, coords);
+}
 
             //NUEVO CÓDIGO: AÑADIR CONTROLES PERSONALIZADOS PARA ELEMENTOS ---
             // Le pasamos el 'drawingManager' para poder controlarlo
             createCustomElementControls(map, drawingManager);
-            createCustomColorControls(map);
+            createCustomColorControls(map, drawingManager);
 
         }
 
 
-        let selectedColor = null;
+         function createCustomColorControls(map, drawingManager) {
+    const colorToolbar = document.createElement('div');
+    
+    colorToolbar.style.margin = '8px';
+    colorToolbar.style.display = 'flex';
+    colorToolbar.style.gap = '2px';
+    colorToolbar.style.backgroundColor = 'white';
+    colorToolbar.style.padding = '3px';
+    colorToolbar.style.borderRadius = '2px';
+    colorToolbar.style.boxShadow = 'rgba(0, 0, 0, 0.3) 0px 1px 4px -1px';
+    colorToolbar.id = 'customColorToolbar';
 
-        function createCustomColorControls(map) {
-            // 1. Crea un contenedor para los botones de colores
-            const colorToolbar = document.createElement('div');
+    availableColorsComplete.forEach((colorObject, index) => {
+        const button = document.createElement('button');
+        button.className = 'custom-color-button';
 
-            colorToolbar.style.margin = '8px';
-            colorToolbar.style.display = 'flex';
-            colorToolbar.style.gap = '2px';
-            colorToolbar.style.backgroundColor = 'white';
-            colorToolbar.style.padding = '3px';
-            colorToolbar.style.borderRadius = '2px';
-            colorToolbar.style.boxShadow = 'rgba(0, 0, 0, 0.3) 0px 1px 4px -1px';
-            colorToolbar.id = 'customColorToolbar';
+        button.style.backgroundColor = colorObject.Color;
+        button.style.border = '2px solid #ccc';
+        button.style.width = '24px';
+        button.style.height = '24px';
+        button.style.borderRadius = '4px';
+        button.style.cursor = 'pointer';
+        button.style.margin = '1px';
+        button.title = `${colorObject.name} - ${colorObject.Color}`;
 
-            // 2. Itera sobre los colores disponibles para crear un botón para cada uno
-            availableColors.forEach(color => {
-                const button = document.createElement('button');
-                button.className = 'custom-color-button'; // Clase para aplicar estilos
+        // IMPORTANTE: Seleccionar el primer color por defecto al cargar
+        if (index === 0) {
+            button.classList.add('active');
+            button.style.border = '2px solid #3385ff';
+            button.style.boxShadow = '0 0 3px rgba(51, 133, 255, 0.5)';
+            selectedColor = colorObject; // ESTABLECER COLOR POR DEFECTO
+        }
 
-                button.style.backgroundColor = color; // El color de fondo es el color real
-                button.style.border = '2px solid #ccc';
-                button.style.width = '24px';
-                button.style.height = '24px';
-                button.style.borderRadius = '4px';
-                button.style.cursor = 'pointer';
-                button.style.margin = '1px';
-                button.title = `Color: ${color}`; // Tooltip con el código del color
+        button.addEventListener('click', () => {
+            // 1. Desactivar todos los botones
+            deactivateColorButtons();
 
-                // Efecto hover
-                button.addEventListener('mouseenter', () => {
-                    if (!button.classList.contains('active')) {
-                        button.style.border = '2px solid #666';
-                    }
-                });
+            // 2. Activar este botón
+            button.classList.add('active');
+            button.style.border = '2px solid #3385ff';
+            button.style.boxShadow = '0 0 3px rgba(51, 133, 255, 0.5)';
 
-                button.addEventListener('mouseleave', () => {
-                    if (!button.classList.contains('active')) {
-                        button.style.border = '2px solid #ccc';
-                    }
-                });
+            // 3. Establecer el color seleccionado (PARA NUEVAS LÍNEAS)
+            selectedColor = colorObject;
 
-                // Evento de clic para seleccionar el color
-                button.addEventListener('click', () => {
-                    // 1. Desactivamos todos los otros botones de color
-                    deactivateColorButtons();
+            // 4. Si hay una línea existente seleccionada, cambiar su color
+            if (selectedPolyline) {
+                selectedPolyline.setOptions({ strokeColor: selectedColor.Color });
+                console.log(`Color aplicado a segmento existente: ${selectedPolyline.segmentId}`);
+            }
 
-                    // 2. Activamos ESTE botón
-                    button.classList.add('active');
-                    button.style.border = '2px solid #3385ff';
-                    button.style.boxShadow = '0 0 3px rgba(51, 133, 255, 0.5)';
+            console.log(`Color seleccionado para nuevas líneas: ${selectedColor.Color}`);
 
-                    // 3. Guardamos el color seleccionado
-                    selectedColor = color;
-
-                    console.log("🎨 Color seleccionado:", color);
-
-                    // 4. Aquí puedes agregar lógica adicional, como cambiar el color de las líneas futuras
-                    // Por ejemplo, si tienes un drawingManager:
-                    // drawingManager.setOptions({
-                    //     polylineOptions: {
-                    //         ...drawingManager.get('polylineOptions'),
-                    //         strokeColor: color
-                    //     }
-                    // });
-                });
-
-                colorToolbar.appendChild(button);
+            // 5. Configurar color para el drawingManager (líneas futuras)
+            drawingManager.setOptions({
+                polylineOptions: {
+                    strokeColor: selectedColor.Color,
+                    strokeOpacity: 0.8,
+                    strokeWeight: 3,
+                    clickable: true,
+                    editable: true,
+                    zIndex: 1
+                }
             });
+        });
 
-            // 3. Añade la barra de colores al mapa (puedes cambiar la posición según prefieras)
-            map.controls[google.maps.ControlPosition.TOP_RIGHT].push(colorToolbar);
+        colorToolbar.appendChild(button);
+    });
+
+    map.controls[google.maps.ControlPosition.TOP_RIGHT].push(colorToolbar);
+}
+        
+        // Función para desactivar todos los botones de color
+        function deactivateColorButtons() {
+            document.querySelectorAll('#customColorToolbar .custom-color-button').forEach(button => {
+                button.classList.remove('active');
+                button.style.border = '2px solid #ccc';
+                button.style.boxShadow = 'none';
+            });
+        }
+
+        // Función mejorada para obtener el color seleccionado (ahora devuelve solo el string del color)
+        function getSelectedColor() {
+            // Si un objeto de color está seleccionado, devuelve su propiedad .Color.
+            // Si no, devuelve el primer color del array de strings como predeterminado.
+            return selectedColor ? selectedColor.Color : availableColors[0];
         }
 
 
@@ -465,162 +785,2782 @@
             if (map) map.setOptions({ draggableCursor: '' });
         }
 
-        function placeMarker(location, elementType, map) {
-            // 1. Extrae las coordenadas de forma segura (esto ya lo tenías bien)
-            const latitude = typeof location.lat === 'function' ? location.lat() : location.lat;
-            const longitude = typeof location.lng === 'function' ? location.lng() : location.lng;
 
-            // 2. Crea el objeto de datos CON un ID único para la sesión.
-            // Usamos Date.now() y un número aleatorio para asegurar que sea único.
-            const elementData = {
-                internalId: Date.now() + Math.random(), // ID único para vincular marcador y datos
-                lat: latitude,
-                lng: longitude,
-                elementTypeId: elementType.id
-            };
+//codigo usado 
+@* function placeMarker(location, elementType, map, element) {
+    let finalLocation = location;
+    let snapped = false;
 
-            // 3. Crea el marcador visual
-            const marker = new google.maps.Marker({
-                position: { lat: latitude, lng: longitude }, // Es mejor usar el objeto lat/lng aquí
-                map: map,
-                icon: {
-                    url: elementType.iconUrl,
-                    scaledSize: new google.maps.Size(32, 32),
-                    origin: new google.maps.Point(0, 0),
-                    anchor: new google.maps.Point(16, 16)
+    console.log("Intentando colocar marcador. ¿Hay una polilínea seleccionada?", selectedPolyline ? "Sí" : "No");
+
+    if (selectedPolyline && !element) {
+        console.log("Iniciando lógica de acoplamiento...");
+        const path = selectedPolyline.getPath();
+        const clickLatLng = location;
+        const tolerance = 0.01;
+
+        for (let i = 0; i < path.getLength() - 1; i++) {
+            const segmentStart = path.getAt(i);
+            const segmentEnd = path.getAt(i + 1);
+
+            const isOnEdge = google.maps.geometry.poly.isLocationOnEdge(
+                clickLatLng,
+                new google.maps.Polyline({ path: [segmentStart, segmentEnd] }),
+                tolerance
+            );
+
+            if (isOnEdge) {
+                // CAMBIO CLAVE: Calcular el punto EXACTO sobre la línea
+                finalLocation = getClosestPointOnLineSegment(clickLatLng, segmentStart, segmentEnd);
+                console.log(`✅ ¡Acoplado al segmento ${i}! Punto calculado exactamente sobre la línea.`);
+                snapped = true;
+                break;
+            }
+        }
+
+        if (!snapped) {
+            console.log("❌ No se encontró ningún segmento cercano para acoplar.");
+        }
+    }
+
+    // Resto de tu código igual...
+    const latitude = typeof finalLocation.lat === 'function' ? finalLocation.lat() : finalLocation.lat;
+    const longitude = typeof finalLocation.lng === 'function' ? finalLocation.lng() : finalLocation.lng;
+
+    const elementData = {
+        databaseId: element ? element.Id : null,
+        DrawingId: element ? element.DrawingId : null,
+        internalId: Date.now() + Math.random(),
+        lat: latitude,
+        lng: longitude,
+        elementTypeId: elementType.id,
+        attachedToPolyline: snapped ? selectedPolyline.segmentId : null // ⭐ NUEVO
+    };
+
+    const marker = new google.maps.Marker({
+        position: { lat: latitude, lng: longitude },
+        map: map,
+        draggable: true, // ⭐ NUEVO: Hacer arrastrable
+        icon: {
+            url: elementType.iconUrl,
+            scaledSize: new google.maps.Size(32, 32),
+            origin: new google.maps.Point(0, 0),
+            anchor: new google.maps.Point(16, 16)
+        }
+    });
+
+    marker.internalId = elementData.internalId;
+    marker.attachedToPolyline = elementData.attachedToPolyline; // ⭐ NUEVO
+
+    // ⭐ NUEVO: Listener para cuando se arrastra el marcador
+    google.maps.event.addListener(marker, 'dragend', function() {
+        handleMarkerDrag(marker);
+    });
+
+    // ⭐ NUEVO: Detectar cuando empieza a arrastrar
+    google.maps.event.addListener(marker, 'dragstart', function() {
+        marker.isDragging = true;
+    });
+
+    // Evento de click derecho (eliminar) - IGUAL que antes
+    google.maps.event.addListener(marker, 'rightclick', function () {
+        // Misión 1: Quitar el marcador del mapa VISUALMENTE
+        this.setMap(null);
+        // Misión 2: Eliminar los DATOS del marcador de nuestro array
+        placedElements = placedElements.filter(el => el.internalId !== this.internalId);
+        // ⭐ NUEVO: También eliminar de allMapMarkers
+        allMapMarkers = allMapMarkers.filter(m => m.internalId !== this.internalId);
+    });
+
+    // Evento de click (abrir modal) - MEJORADO para evitar conflicto con arrastre
+    google.maps.event.addListener(marker, 'click', function () {
+        // ⭐ IMPORTANTE: Solo abrir modal si NO se está arrastrando
+        if (!marker.isDragging) {
+            // 1. Obtenemos los datos del elemento del mapa
+            selectedMapElementData = placedElements.find(el => el.internalId === this.internalId);
+            console.log("Elemento seleccionado:", selectedMapElementData);
+            console.log("Dibujo ID:", selectedMapElementData ? selectedMapElementData.DrawingId : "N/A");
+            
+            // 2. Preparamos el modal una sola vez
+            const elementModal = document.getElementById('elementModal');
+            const myModal = new bootstrap.Modal(elementModal);
+
+            // Asignamos el ID por si lo necesitamos
+            if (selectedMapElementData) {
+                elementModal.dataset.elementProjectId = selectedMapElementData.databaseId;
+            }
+
+            // 3. Verificamos si necesitamos cargar un dibujo existente
+            if (selectedMapElementData && selectedMapElementData.DrawingId) {
+                console.log(`Buscando datos del dibujo ID: ${selectedMapElementData.DrawingId}...`);
+
+                $.ajax({
+                    url: `/Project/GetDrawing/${selectedMapElementData.DrawingId}`,
+                    type: 'GET',
+                    dataType: 'json',
+                    success: function (objetoJsonRecibido) {
+                        console.log("✅ Datos recibidos. Preparando para mostrar modal maximizado.");
+
+                        const elementModal = document.getElementById('elementModal');
+                        const myModal = new bootstrap.Modal(elementModal);
+
+                        // USAMOS .one() PARA QUE ESTE EVENTO SÓLO SE EJECUTE UNA VEZ POR CADA VEZ QUE SE ABRE EL MODAL.
+                        $(elementModal).one('shown.bs.modal', function () {
+                            console.log("Evento 'shown.bs.modal' disparado. El modal es completamente visible.");
+
+                            if (window.cargarDesdeJSON) {
+                                window.cargarDesdeJSON(objetoJsonRecibido);
+                            } else {
+                                console.error("La función 'cargarDesdeJSON' no está disponible.");
+                                alert("Error: No se pudo encontrar la función para dibujar.");
+                            }
+                        });
+
+                        // 1. PRIMERO: Llamamos a la función para que AÑADA las clases de maximizado.
+                        maximizarModal();
+
+                        // 2. SEGUNDO: Mostramos el modal.
+                        myModal.show();
+                    },
+                    error: function (xhr) {
+                        console.error('❌ Error al obtener los datos del dibujo:', xhr.responseText);
+                        alert(`Error al cargar el dibujo. Respuesta: ${xhr.responseText}`);
+                    }
+                });
+            } else {
+                // 5. Si NO hay un dibujo guardado, simplemente limpiamos el lienzo y mostramos el modal vacío.
+                console.log("No hay dibujo asociado. Mostrando modal limpio.");
+                if (window.limpiarLienzoKonvaGlobal) {
+                    window.limpiarLienzoKonvaGlobal();
+                }
+                resetModalSize();
+                myModal.show();
+            }
+        }
+    });
+
+    placedElements.push(elementData);
+    allMapMarkers.push(marker); // ⭐ NUEVO: Guardar referencia al marcador visual
+
+    console.log("Elemento colocado:", elementData, snapped ? "(Acoplado exactamente)" : "(Posición libre)");
+} *@
+
+
+function placeMarker(location, elementType, map, element) {
+    let finalLocation = location;
+    let snapped = false;
+
+    // Solo aplicamos la lógica de acoplamiento si hay una línea seleccionada y es un elemento nuevo.
+    if (selectedPolyline && !element) {
+
+        // --- INICIO DE LA NUEVA LÓGICA DE PRECISIÓN ---
+
+        // PASO 1: Encontrar el punto más cercano en la línea a nuestro clic.
+        // Usamos la función que ya existe en tu código para esto.
+        const snappedPosition = getClosestPointOnPolyline(location, selectedPolyline);
+
+        // PASO 2: Calcular la distancia real en metros entre el clic y el punto más cercano en la línea.
+        const distance = google.maps.geometry.spherical.computeDistanceBetween(location, snappedPosition);
+
+        // PASO 3: Definir un radio de "atracción" en metros.
+        // Si el usuario hace clic a menos de esta distancia de la línea, lo acoplamos.
+        // Puedes ajustar este valor si te parece muy grande o muy pequeño.
+        const TOLERANCIA_EN_METROS = 15;
+
+        console.log(`Distancia a la línea: ${distance.toFixed(2)} metros.`);
+
+        // PASO 4: Si el clic está dentro de nuestra tolerancia...
+        if (distance < TOLERANCIA_EN_METROS) {
+            console.log(`✅ ¡Acoplando! El clic está dentro de la tolerancia de ${TOLERANCIA_EN_METROS}m.`);
+
+            // ...usamos el punto matemáticamente perfecto sobre la línea como la posición final.
+            finalLocation = snappedPosition;
+            snapped = true;
+
+        } else {
+            console.log("❌ Posición libre. El clic está demasiado lejos de la línea.");
+            // Si no, 'finalLocation' sigue siendo la ubicación original del clic.
+        }
+        // --- FIN DE LA NUEVA LÓGICA DE PRECISIÓN ---
+    }
+
+    // El resto del código para crear el marcador, guardar datos y añadir eventos
+    // permanece exactamente igual, ya que funciona correctamente.
+    const latitude = typeof finalLocation.lat === 'function' ? finalLocation.lat() : finalLocation.lat;
+    const longitude = typeof finalLocation.lng === 'function' ? finalLocation.lng() : finalLocation.lng;
+
+    const elementData = {
+        databaseId: element ? element.Id : null,
+        DrawingId: element ? element.DrawingId : null,
+        internalId: Date.now() + Math.random(),
+        lat: latitude,
+        lng: longitude,
+        elementTypeId: elementType.id,
+        attachedToPolyline: snapped ? selectedPolyline.segmentId : null
+    };
+
+    const marker = new google.maps.Marker({
+        position: { lat: latitude, lng: longitude },
+        map: map,
+        draggable: true,
+        icon: {
+            url: elementType.iconUrl,
+            scaledSize: new google.maps.Size(32, 32),
+            origin: new google.maps.Point(0, 0),
+            anchor: new google.maps.Point(16, 16)
+        }
+    });
+
+    marker.internalId = elementData.internalId;
+    marker.attachedToPolyline = elementData.attachedToPolyline;
+
+    google.maps.event.addListener(marker, 'dragend', function() {
+        handleMarkerDrag(marker);
+    });
+
+    google.maps.event.addListener(marker, 'dragstart', function() {
+        marker.isDragging = true;
+    });
+
+    google.maps.event.addListener(marker, 'rightclick', function () {
+        this.setMap(null);
+        placedElements = placedElements.filter(el => el.internalId !== this.internalId);
+        allMapMarkers = allMapMarkers.filter(m => m.internalId !== this.internalId);
+    });
+
+    google.maps.event.addListener(marker, 'click', function () {
+        if (!marker.isDragging) {
+            selectedMapElementData = placedElements.find(el => el.internalId === this.internalId);
+            const elementModal = document.getElementById('elementModal');
+            const myModal = new bootstrap.Modal(elementModal);
+
+            if (selectedMapElementData) {
+                elementModal.dataset.elementProjectId = selectedMapElementData.databaseId;
+            }
+
+            if (selectedMapElementData && selectedMapElementData.DrawingId) {
+                $.ajax({
+                    url: `/Project/GetDrawing/${selectedMapElementData.DrawingId}`,
+                    type: 'GET',
+                    dataType: 'json',
+                    success: function (objetoJsonRecibido) {
+                        $(elementModal).one('shown.bs.modal', () => window.cargarDesdeJSON && window.cargarDesdeJSON(objetoJsonRecibido));
+                        maximizarModal();
+                        myModal.show();
+                    },
+                    error: (xhr) => alert(`Error al cargar el dibujo: ${xhr.responseText}`)
+                });
+            } else {
+                window.limpiarLienzoKonvaGlobal && window.limpiarLienzoKonvaGlobal();
+                resetModalSize();
+                myModal.show();
+            }
+        }
+    });
+
+    placedElements.push(elementData);
+    allMapMarkers.push(marker);
+
+    console.log("Elemento colocado:", elementData, snapped ? "(Acoplado con precisión)" : "(Posición libre)");
+}
+
+
+
+function handleMarkerDrag(marker) {
+    const newPosition = marker.getPosition();
+    
+    // Si el marcador estaba conectado a una línea, mantenerlo conectado
+    if (marker.attachedToPolyline) {
+        const polyline = polylineSegments.find(p => p.segmentId === marker.attachedToPolyline);
+        
+        if (polyline) {
+            // Encontrar el punto más cercano en la línea
+            const snappedPosition = getClosestPointOnPolyline(newPosition, polyline);
+            
+            // Mover el marcador al punto más cercano de la línea
+            marker.setPosition(snappedPosition);
+            
+            // Actualizar los datos del elemento
+            const elementData = placedElements.find(el => el.internalId === marker.internalId);
+            if (elementData) {
+                elementData.lat = snappedPosition.lat();
+                elementData.lng = snappedPosition.lng();
+            }
+            
+            console.log(`📍 Marcador ${marker.internalId} reposicionado en la línea`);
+        }
+    } else {
+        // Si no estaba conectado, solo actualizar las coordenadas
+        const elementData = placedElements.find(el => el.internalId === marker.internalId);
+        if (elementData) {
+            elementData.lat = newPosition.lat();
+            elementData.lng = newPosition.lng();
+        }
+    }
+    
+    // Resetear el flag de arrastrar después de un momento
+    setTimeout(() => {
+        marker.isDragging = false;
+    }, 100);
+}
+
+
+
+
+function updateAttachedMarkers() {
+    allMapMarkers.forEach(marker => {
+        // ⭐ NO mover marcadores que se están arrastrando
+        if (marker.attachedToPolyline && !marker.isDragging) {
+            const polyline = polylineSegments.find(p => p.segmentId === marker.attachedToPolyline);
+            if (polyline) {
+                const currentPos = marker.getPosition();
+                const newPos = getClosestPointOnPolyline(currentPos, polyline);
+                
+                // Solo mover si la diferencia es significativa (evitar micro-movimientos)
+                const distance = google.maps.geometry.spherical.computeDistanceBetween(currentPos, newPos);
+                if (distance > 1) { // Solo mover si está a más de 1 metro
+                    marker.setPosition(newPos);
+                    
+                    const elementData = placedElements.find(el => el.internalId === marker.internalId);
+                    if (elementData) {
+                        elementData.lat = newPos.lat();
+                        elementData.lng = newPos.lng();
+                    }
+                }
+            }
+        }
+    });
+}
+
+
+function reconnectExistingMarkersToPolylines() {
+    console.log("🔗 Reconectando cajas existentes a líneas...");
+    
+    allMapMarkers.forEach(marker => {
+        // ⭐ AGREGAR: Hacer arrastrables los marcadores existentes también
+        if (!marker.getDraggable()) {
+            marker.setDraggable(true);
+            
+            // Agregar listeners de arrastrar a marcadores existentes
+            google.maps.event.addListener(marker, 'dragend', function() {
+                handleMarkerDrag(marker);
+            });
+            
+            google.maps.event.addListener(marker, 'dragstart', function() {
+                marker.isDragging = true;
+            });
+        }
+        
+        // Resto del código de reconexión igual...
+        if (!marker.attachedToPolyline) {
+            const markerPos = marker.getPosition();
+            const tolerance = 50;
+            
+            let closestPolyline = null;
+            let minDistance = Infinity;
+            
+            polylineSegments.forEach(polyline => {
+                const isNear = google.maps.geometry.poly.isLocationOnEdge(
+                    markerPos, 
+                    polyline, 
+                    tolerance / 111320
+                );
+                
+                if (isNear) {
+                    const closestPoint = getClosestPointOnPolyline(markerPos, polyline);
+                    const distance = google.maps.geometry.spherical.computeDistanceBetween(markerPos, closestPoint);
+                    
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        closestPolyline = polyline;
+                    }
                 }
             });
-
-            // 4. Vincula el marcador con los datos guardando el ID único en el propio marcador.
-            marker.internalId = elementData.internalId;
-
-            // 5. ¡LA CLAVE! Añade el listener de click derecho para la eliminación.
-            google.maps.event.addListener(marker, 'rightclick', function () {
-                // 'this' dentro de este listener se refiere al marcador que fue clickeado.
-
-                // a) Elimina el marcador visual del mapa.
-                this.setMap(null);
-
-                // b) Encuentra y elimina el objeto de datos del array 'placedElements'.
-                // Usamos .filter() para crear un nuevo array que excluya el elemento con nuestro ID.
-                placedElements = placedElements.filter(el => el.internalId !== this.internalId);
-
-                console.log(`Elemento con ID ${this.internalId} eliminado.`);
-                console.log("Estado actual de 'placedElements':", placedElements);
-            });
-
-
-            // 6. Añade el elemento con su nuevo ID al array que se enviará al guardar.
-            placedElements.push(elementData);
-
-            console.log("Elemento colocado/cargado:", elementData);
-            console.log("Todos los elementos:", placedElements);
-
-            @* // 1. Dibuja el marcador visual en el mapa (esta parte está bien)
-            // Google Maps es inteligente y la propiedad "position" acepta ambos tipos de objeto.
-            const marker = new google.maps.Marker({
-                position: location,
-                map: map,
-                icon: {
-                    url: elementType.iconUrl, // La URL de la imagen
-                    scaledSize: new google.maps.Size(32, 32), // ¡La clave! El nuevo tamaño en píxeles (ancho, alto)
-                    origin: new google.maps.Point(0, 0),      // Punto de origen de la imagen
-                    anchor: new google.maps.Point(16, 16)     // Dónde se ancla el icono (el centro en este caso)
+            
+            if (closestPolyline) {
+                marker.attachedToPolyline = closestPolyline.segmentId;
+                
+                const elementData = placedElements.find(el => el.internalId === marker.internalId);
+                if (elementData) {
+                    elementData.attachedToPolyline = closestPolyline.segmentId;
                 }
-                //icon: elementType.iconUrl
-            });
+                
+                console.log(`✅ Marcador ${marker.internalId} conectado a línea ${closestPolyline.segmentId}`);
+            }
+        }
+    });
+}
 
-            // 2. Extrae las coordenadas de forma segura, sin importar el tipo de objeto 'location'
-             const latitude = typeof location.lat === 'function' ? location.lat() : location.lat;
-             const longitude = typeof location.lng === 'function' ? location.lng() : location.lng;
 
-            // 3. Crea el objeto de datos con las coordenadas numéricas correctas
-            const elementData = {
-                lat: latitude,
-                lng: longitude,
-                elementTypeId: elementType.id
-            };
+function getClosestPointOnPolyline(point, polyline) {
+    const path = polyline.getPath();
+    let closestPoint = null;
+    let minDistance = Infinity;
 
-            // 4. Añade el elemento al array que se enviará al guardar
-            placedElements.push(elementData);
+    // Revisar cada segmento de la línea
+    for (let i = 0; i < path.getLength() - 1; i++) {
+        const segmentStart = path.getAt(i);
+        const segmentEnd = path.getAt(i + 1);
+        
+        const candidatePoint = getClosestPointOnLineSegment(point, segmentStart, segmentEnd);
+        const distance = google.maps.geometry.spherical.computeDistanceBetween(point, candidatePoint);
+        
+        if (distance < minDistance) {
+            minDistance = distance;
+            closestPoint = candidatePoint;
+        }
+    }
 
-            console.log("Elemento colocado:", elementData);
-            console.log("Todos los elementos:", placedElements);*@
-                        }
+    return closestPoint || point;
+}
+
+// NUEVA FUNCIÓN: Calcular el punto más cercano sobre un segmento de línea
+function getClosestPointOnLineSegment(point, segmentStart, segmentEnd) {
+    const startLat = segmentStart.lat();
+    const startLng = segmentStart.lng();
+    const endLat = segmentEnd.lat();
+    const endLng = segmentEnd.lng();
+    const pointLat = point.lat();
+    const pointLng = point.lng();
+
+    // Calcular vectores
+    const A = pointLat - startLat;
+    const B = pointLng - startLng;
+    const C = endLat - startLat;
+    const D = endLng - startLng;
+
+    const dot = A * C + B * D;
+    const lenSq = C * C + D * D;
+    let param = -1;
+
+    if (lenSq !== 0) {
+        param = dot / lenSq;
+    }
+
+    let closestLat, closestLng;
+
+    if (param < 0) {
+        // El punto más cercano es el inicio del segmento
+        closestLat = startLat;
+        closestLng = startLng;
+    } else if (param > 1) {
+        // El punto más cercano es el final del segmento
+        closestLat = endLat;
+        closestLng = endLng;
+    } else {
+        // El punto más cercano está en el medio del segmento
+        closestLat = startLat + param * C;
+        closestLng = startLng + param * D;
+    }
+
+    return new google.maps.LatLng(closestLat, closestLng);
+}
+        
 
         document.getElementById('saveCoordsBtn').addEventListener('click', function () {
-            let dataToSend = null; // Inicializamos a null
+               let dataToSend = null;
 
-            // Verificamos cuál arreglo de coordenadas tiene datos
-            if (currentPolygonCoords.length > 0) {
-                dataToSend = {
-                    Name: nameJs,
-                    Id: currentProjectId,
-                    Type: 'polygon', // Aún enviamos el tipo para que el controlador sepa cómo procesarlo
-                    Coordinates: currentPolygonCoords.map(c => [c.lat, c.lng]),
-                    PlacedElements: placedElements
-                };
-                console.log("Enviando coordenadas de polígono:", dataToSend);
-            } else if (currentPolylineCoords.length > 0) {
-                dataToSend = {
-                    Name: nameJs,
-                    Id: currentProjectId,
-                    Type: 'polyline', // Aún enviamos el tipo
-                    Coordinates: currentPolylineCoords.map(c => [c.lat, c.lng]),
-                    PlacedElements: placedElements
-                };
-                console.log("Enviando coordenadas de polilínea:", dataToSend);
-            } else {
-                alert("Por favor, dibuja un polígono o una polilínea antes de guardar.");
-                return; // Detiene la función si no hay nada dibujado
-            }
+    // CASO 1: Hay segmentos de polilínea dibujados. Esta es ahora la única forma de guardar líneas.
+    if (polylineSegments && polylineSegments.length > 0) {
+        const segmentsData = polylineSegments.map(segment => ({
+            segmentId: segment.segmentId,
+            color: segment.get('strokeColor'),
+            coordinates: segment.coordinates ? segment.coordinates.map(c => ({
+                lat: c.lat,
+                lng: c.lng
+            })) : []
+        }));
 
-            // Si dataToSend sigue siendo null, significa que no se dibujó nada válido.
-            if (dataToSend === null) {
-                alert("No hay una forma válida dibujada para guardar.");
-                return;
-            }
+        dataToSend = {
+            Name: nameJs,
+            Id: currentProjectId,
+            Type: 'multi_polyline', // El backend recibe un tipo consistente.
+            Segments: segmentsData,
+            PlacedElements: placedElements
+        };
+    }
+    // CASO 2: No hay líneas, pero sí hay un polígono.
+    else if (currentPolygonCoords.length > 0) {
+        dataToSend = {
+            Name: nameJs,
+            Id: currentProjectId,
+            Type: 'polygon',
+            Coordinates: currentPolygonCoords.map(c => ({ lat: c.lat, lng: c.lng })),
+            PlacedElements: placedElements
+        };
+    }
+    // CASO 3: No hay nada que guardar.
+    else {
+        // También puedes guardar si solo hay elementos colocados sin líneas
+        if (placedElements && placedElements.length > 0) {
+             dataToSend = {
+                Name: nameJs,
+                Id: currentProjectId,
+                Type: 'elements_only', // Un tipo para indicar que solo van elementos
+                Segments: [],
+                PlacedElements: placedElements
+            };
+        } else {
+            alert("Por favor, dibuja una línea/polígono o coloca algún elemento antes de guardar.");
+            return;
+        }
+    }
 
-            console.log("📤 Datos que se van a enviar:", dataToSend);
-            console.log("📤 JSON a enviar:", JSON.stringify(dataToSend));
+    // El resto de tu código de fetch es perfecto y no necesita cambios.
+    console.log("📤 Datos que se van a enviar:", dataToSend);
+    console.log("📤 JSON a enviar:", JSON.stringify(dataToSend));
 
-            // Envía los datos usando la API Fetch
-            fetch('/Project/Coordinate', { // ¡Importante! Reemplaza con tu controlador y acción reales.
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    // 'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value // Si lo usas
-                },
-                body: JSON.stringify(dataToSend)
-            })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`Error HTTP! estado: ${response.status}`);
-                    }
-                    return response.json(); // Esperamos el JSON { redirectToUrl: '...' }
-                })
-                .then(data => {
-                    // ¡ÉXITO! Ahora redirigimos el navegador a la URL que nos dio el servidor.
-                    console.log('Datos guardados. Redirigiendo a:', data.redirectToUrl);
-                    window.location.href = data.redirectToUrl;
-                })
-                .catch((error) => {
-                    console.error('Error:', error);
-                    alert('Hubo un error al guardar las coordenadas: ' + error.message);
-                });
-
-        });
+    fetch('/Project/Coordinate', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(dataToSend)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Error HTTP! estado: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Datos guardados. Redirigiendo a:', data.redirectToUrl);
+        window.location.href = data.redirectToUrl;
+    })
+    .catch((error) => {
+        console.error('Error:', error);
+        alert('Hubo un error al guardar las coordenadas: ' + error.message);
+    });
+});
 
 
 
 
         // Esta línea es crucial para que Google Maps sepa qué función llamar una vez que el API esté cargada
         window.initMap = initMap;
+
+
+        // Código de colores estándar TIA-598-C para cables
+        const CABLE_COLOR_PALETTES = {
+            // Para cables específicos de 5 hilos
+            5: [
+                '#007bff', // 1. Azul
+                '#fd7e14', // 2. Naranja
+                '#28a745', // 3. Verde
+                '#a0522d', // 4. Marrón
+                '#6c757d'  // 5. Gris
+            ],
+            // Código de colores estándar TIA-598-C para 12 fibras. Se usará para cables de 8, 12 y otros tamaños.
+            default: [
+                '#007bff', // 1. Azul
+                '#fd7e14', // 2. Naranja
+                '#28a745', // 3. Verde
+                '#a0522d', // 4. Marrón
+                '#6c757d', // 5. Gris (Slate)
+                '#D3D3D3', // 6. Gris Claro (en lugar de Blanco)
+                '#dc3545', // 7. Rojo
+                '#000000', // 8. Negro
+                '#ffc107', // 9. Amarillo
+                '#8a2be2', // 10. Violeta
+                '#e83e8c', // 11. Rosa
+                '#17a2b8'  // 12. Aguamarina
+            ]
+        };
+         
+
+
+
+        // =================================================================================
+        // =========== INICIO DE LA LÓGICA DE KONVA.JS (CON GUARDADO SVG) =================
+        // =================================================================================
+       
+        let mainLayer;
+        let stage;
+        let cableCreationCounter = 0;//contador para crear cables en base a logica derecha o izquierda
+        
+        document.addEventListener('DOMContentLoaded', function () {
+          
+             let nodeIdCounter = 0;
+             let currentMode = 'select';
+             let isDrawingLine = false, lineStartPoint = null, previewLine = null;
+              let startElement = null, endElement = null;
+
+
+function setupZoomAndPan(stage) {
+    const zoomFactor = 1.1;
+    const minScale = 0.2;
+    const maxScale = 10.0;
+    const stageContainer = stage.container();
+
+    // --- LÓGICA DE ZOOM (Sin cambios) ---
+    function zoomStage(event) {
+        event.evt.preventDefault();
+        const oldScale = stage.scaleX();
+        const pointer = stage.getPointerPosition();
+        const mousePointTo = {
+            x: (pointer.x - stage.x()) / oldScale,
+            y: (pointer.y - stage.y()) / oldScale,
+        };
+        const direction = event.evt.deltaY > 0 ? -1 : 1;
+        let newScale = direction > 0 ? oldScale * zoomFactor : oldScale / zoomFactor;
+        newScale = Math.max(minScale, Math.min(maxScale, newScale));
+        stage.scale({ x: newScale, y: newScale });
+        const newPos = {
+            x: pointer.x - mousePointTo.x * newScale,
+            y: pointer.y - mousePointTo.y * newScale,
+        };
+        stage.position(newPos);
+        stage.batchDraw();
+    }
+    stage.on('wheel', zoomStage);
+
+    // --- LÓGICA DE PANEO (Sin cambios) ---
+    let isSpacebarPanning = false;
+    let isDragPanning = false;
+    let panStartPos = { x: 0, y: 0 };
+    let spacebarPressed = false;
+
+    window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' && document.activeElement.tagName === 'BODY') {
+            e.preventDefault();
+            spacebarPressed = true;
+            if (!isSpacebarPanning && !isDragPanning) {
+                stageContainer.style.cursor = 'grab';
+            }
+        }
+    });
+
+    window.addEventListener('keyup', (e) => {
+        if (e.code === 'Space') {
+            e.preventDefault();
+            spacebarPressed = false;
+            isSpacebarPanning = false;
+            if (!isDragPanning) {
+                stageContainer.style.cursor = 'default';
+            }
+        }
+    });
+
+    stage.on('mousedown', (e) => {
+        if (spacebarPressed) {
+            isSpacebarPanning = true;
+            panStartPos = stage.getPointerPosition();
+            stageContainer.style.cursor = 'grabbing';
+            return;
+        }
+        if (e.target === stage) {
+            isDragPanning = true;
+            panStartPos = stage.getPointerPosition();
+            stageContainer.style.cursor = 'grabbing';
+        }
+    });
+    
+    // --- MANEJADOR 'mousemove' UNIFICADO Y CORREGIDO ---
+    stage.on('mousemove', () => {
+        // --- 1. LÓGICA DE PANEO ---
+        if (isSpacebarPanning || isDragPanning) {
+            const currentPos = stage.getPointerPosition();
+            if (!currentPos) return;
+
+            const dx = currentPos.x - panStartPos.x;
+            const dy = currentPos.y - panStartPos.y;
+            stage.move({ x: dx, y: dy });
+            panStartPos = currentPos;
+            stage.batchDraw();
+            return; 
+        }
+
+        // --- 2. LÓGICA DE DIBUJO ---
+        if (currentMode === 'draw' && isDrawingLine && previewLine) {
+            let globalPos = stage.getPointerPosition();
+            if (!globalPos) return;
+
+            const hasSnapPoint = getSnapPoint(globalPos);
+            let endPosGlobal = hasSnapPoint || globalPos;
+            
+            // Traducir la coordenada final a la local de la capa
+            const transform = mainLayer.getAbsoluteTransform().copy().invert();
+            const endPosLocal = transform.point(endPosGlobal);
+            
+            // =================================================================
+            // === ESTA ES LA CORRECCIÓN CLAVE PARA EL CÍRCULO ROJO ===========
+            // =================================================================
+            if (hasSnapPoint) {
+                // Posicionamos el indicador usando la coordenada LOCAL
+                snapIndicator.position(endPosLocal).show();
+            } else {
+                snapIndicator.hide();
+            }
+            // =================================================================
+
+            // Actualizamos la línea de previsualización (esto ya estaba bien)
+            previewLine.points(calculateOrthogonalPoints(lineStartPoint, endPosLocal));
+            
+            mainLayer.draw();
+        }
+    });
+
+    // --- LÓGICA MOUSEUP (Sin cambios) ---
+    window.addEventListener('mouseup', () => {
+        const wasPanning = isSpacebarPanning || isDragPanning;
+        isSpacebarPanning = false;
+        isDragPanning = false;
+
+        if (wasPanning) {
+           if (spacebarPressed) {
+               stageContainer.style.cursor = 'grab';
+           } else {
+               stageContainer.style.cursor = 'default';
+           }
+        }
+    });
+
+    console.log("🚀 Funcionalidad de Zoom y Paneo UNIFICADA inicializada.");
+}
+
+            // --- 1. CONFIGURACIÓN INICIAL ---
+            @* let stage = new Konva.Stage({ container: 'konva-container', width: 750, height: 500 }); *@
+
+                //funcion central para redimensionar el lienzo de Konva
+                function resizeCanvasToContainer() {
+                    if (stage && stage.container) {
+                        const container = stage.container();
+                        const newWidth = container.clientWidth;
+                        const newHeight = container.clientHeight;
+
+                        if (newWidth > 0 && newHeight > 0) {
+                            stage.width(newWidth);
+                            stage.height(newHeight);
+                            stage.draw();
+                            console.log(`✅ Lienzo redimensionado a: ${newWidth}x${newHeight}`);
+                        }
+                    }
+                }
+             //aqui antes estaba declarado la varoiable let stage pero se declaro de una forma global no olvidar
+            const container = document.getElementById('konva-container');
+             stage = new Konva.Stage({
+                container: 'konva-container',
+                width: 1,   // Ancho dinámico basado en el contenedor
+                height: 1  // Alto dinámico basado en el contenedor
+            });
+
+            mainLayer = new Konva.Layer();
+            stage.add(mainLayer);
+
+            // Le decimos a la capa que no tenga ninguna área de recorte.
+// Esto fuerza a Konva a dibujar siempre todos los objetos,
+// sin importar si están fuera de la vista inicial.
+mainLayer.clipFunc(null);
+mainLayer.clipX(undefined);
+mainLayer.clipY(undefined);
+mainLayer.clipWidth(undefined);
+mainLayer.clipHeight(undefined);
+
+             // Llama a la nueva función limpia aquí
+             setupZoomAndPan(stage);
+
+
+             //resetear zoom para no generar error 
+             function resetStageView(stage) {
+    if (stage) {
+        // Restablecer la escala a 100%
+        stage.scale({ x: 1, y: 1 });
+        
+        // Restablecer la posición al punto de origen
+        stage.position({ x: 0, y: 0 });
+        
+        // Redibujar el lienzo para aplicar los cambios
+        stage.batchDraw();
+        
+        console.log("✅ Vista del lienzo reseteada a 100%");
+    }
+}
+
+
+//codigo para exportar imagen del dibujo realizado
+
+document.getElementById('export-button').addEventListener('click', () => {
+    // Obtener la URL de datos del stage
+    // Puedes especificar el formato ('image/jpeg') y la calidad (0-1) si quieres.
+    const dataURL = stage.toDataURL({
+        mimeType: 'image/png',
+        quality: 1, // Calidad máxima para un PNG
+        pixelRatio: 2 // Opcional: Para una imagen de mayor resolución en pantallas Retina
+    });
+
+    // Crear un elemento de enlace (<a>) en la memoria
+    const link = document.createElement('a');
+    link.download = 'mi-diagrama-de-cables.png'; // Nombre del archivo
+    link.href = dataURL;
+
+    // Simular un clic en el enlace para iniciar la descarga
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link); // Limpiar el enlace
+});
+
+// va ligado con el zoom Escucha el evento que se dispara JUSTO ANTES de que el modal 'elementModal' se muestre.
+    $('#elementModal').on('show.bs.modal', function () {
+        // 'stage' debe ser la variable global o accesible que contiene tu lienzo de Konva
+        // Asegúrate de que la variable 'stage' esté disponible en este scope.
+        if (typeof stage !== 'undefined') {
+            resetStageView(stage);
+
+        // EXTRA: Es una buena práctica también asegurarse de que el lienzo se redimensione
+        // por si el tamaño de la ventana cambió mientras el modal estaba cerrado.
+        resizeCanvasToContainer();
+        }
+    });
+
+
+            // --- 3. EL CÓDIGO FINAL PARA EL BOTÓN MAXIMIZAR EN BOOTSTRAP 4 ---
+            document.getElementById('toggleFullscreenBtn').addEventListener('click', function () {
+                const modalDialog = document.querySelector('#elementModal .modal-dialog');
+
+                // Alternamos nuestra clase personalizada '.modal-fullscreen-bs4'
+                modalDialog.classList.toggle('modal-fullscreen-bs4');
+
+                // Y también alternamos '.modal-xl' para que no estén ambas al mismo tiempo
+                modalDialog.classList.toggle('modal-xl');
+
+                // Esperamos la animación y llamamos a nuestra función central.
+                setTimeout(resizeCanvasToContainer, 250);
+
+            });
+
+            const colorPicker = document.getElementById('colorPicker');
+            const brushSize = document.getElementById('brushSize');
+            const clearCanvasBtn = document.getElementById('clearCanvasBtn');
+            const saveCanvasBtn = document.getElementById('saveCanvasBtn');
+            const componentControls = document.getElementById('componentGeneratorControls');
+            const selectModeBtn = document.getElementById('selectModeBtn');
+            const drawModeBtn = document.getElementById('drawModeBtn');
+             //lo estoy colocando de forma global si hay falla descomentar y usar local
+            //let currentMode = 'select';
+            let templateCableGroup = null;
+            let selectedCanvasColor = '#000000';
+
+            let transformer = new Konva.Transformer({
+                borderStroke: 'blue', borderDash: [6, 2], rotateEnabled: true, anchorSize: 8, name: 'tool_transformer'
+            });
+            mainLayer.add(transformer);
+
+            let snapIndicator = new Konva.Circle({
+                radius: 7, stroke: 'red', strokeWidth: 2, visible: false, name: 'tool_snap_indicator'
+            });
+            mainLayer.add(snapIndicator);
+
+            // --- 2. GESTIÓN DE MODOS DE TRABAJO ---
+            function setMode(newMode) {
+                currentMode = newMode;
+                if (newMode === 'select') {
+                    selectModeBtn.classList.add('btn-primary');
+                    selectModeBtn.classList.remove('btn-outline-secondary');
+                    drawModeBtn.classList.add('btn-outline-secondary');
+                    drawModeBtn.classList.remove('btn-primary');
+                    stage.container().style.cursor = 'default';
+                    abortLineDrawing();
+                } else { // 'draw'
+                    drawModeBtn.classList.add('btn-primary');
+                    drawModeBtn.classList.remove('btn-outline-secondary');
+                    selectModeBtn.classList.add('btn-outline-secondary');
+                    selectModeBtn.classList.remove('btn-primary');
+                    stage.container().style.cursor = 'crosshair';
+                    transformer.nodes([]);
+                }
+            }
+
+            // Crear paleta de colores para líneas
+            function createCanvasColorPalette() {
+                const toolbar = document.getElementById('toolbar');
+                const colorSection = document.createElement('div');
+                colorSection.className = 'me-3 border-end pe-3';
+                colorSection.innerHTML = '<span class="me-2 small">COLOR LÍNEA:</span>';
+
+                const availableColorsComplete = [
+                    { name: 'Negro', Color: '#000000' },
+                    { name: 'Rojo', Color: '#FF0000' },
+                    { name: 'Azul', Color: '#0000FF' },
+                    { name: 'Verde', Color: '#008000' }
+                ];
+
+                availableColorsComplete.forEach((colorObject, index) => {
+                    const colorBtn = document.createElement('button');
+                    colorBtn.className = 'btn btn-sm me-1 canvas-color-btn';
+                    colorBtn.style.backgroundColor = colorObject.Color;
+                    colorBtn.style.width = '25px';
+                    colorBtn.style.height = '25px';
+                    colorBtn.style.border = '2px solid #ccc';
+                    colorBtn.style.borderRadius = '4px';
+                    colorBtn.title = `${colorObject.name} - ${colorObject.Color}`;
+                    colorBtn.dataset.color = colorObject.Color;
+
+                    if (index === 0) {
+                        colorBtn.classList.add('active-canvas-color');
+                        colorBtn.style.border = '2px solid #007bff';
+                        selectedCanvasColor = colorObject.Color;
+                    }
+
+                    colorBtn.addEventListener('click', () => {
+                        document.querySelectorAll('.canvas-color-btn').forEach(btn => {
+                            btn.classList.remove('active-canvas-color');
+                            btn.style.border = '2px solid #ccc';
+                        });
+
+                        colorBtn.classList.add('active-canvas-color');
+                        colorBtn.style.border = '2px solid #007bff';
+                        selectedCanvasColor = colorObject.Color;
+                        colorPicker.value = colorObject.Color;
+
+                        console.log(`🎨 Color seleccionado para líneas: ${colorObject.Color}`);
+                    });
+
+                    colorSection.appendChild(colorBtn);
+                });
+
+                const modeSection = toolbar.querySelector('.border-end');
+                modeSection.parentNode.insertBefore(colorSection, modeSection.nextSibling);
+            }
+
+            if (document.getElementById('toolbar')) {
+                createCanvasColorPalette();
+            }
+
+            selectModeBtn.addEventListener('click', () => setMode('select'));
+            drawModeBtn.addEventListener('click', () => setMode('draw'));
+
+            // --- 3. GESTIÓN DE EVENTOS DE RATÓN ---
+            @* let isDrawingLine = false, lineStartPoint = null, previewLine = null;
+            let startElement = null, endElement = null; *@
+
+            stage.on('click tap', (e) => {
+                if (currentMode === 'select') {
+                    handleSelection(e);
+                } else {
+                    handleLineDrawing(e);
+                }
+            });
+
+
+function handleSelection(e) {
+    // ✅ LÍNEA AÑADIDA: Si se hace clic en la imagen de referencia, no hacemos nada.
+    if (e.target && e.target.hasName('reference_image')) {
+        transformer.nodes([]); // Deseleccionamos cualquier otra cosa
+        mainLayer.draw();
+        return; // Y salimos de la función
+    }
+    // 1. LIMPIEZA PREVENTIVA: Ocultamos todos los manejadores 'X' que puedan estar visibles.
+    //    Esto asegura que cada nueva selección comience desde un estado visual limpio.
+    mainLayer.find('.line_handle').forEach(h => h.hide());
+
+    // 2. CASO DE DESELECCIÓN: Si el usuario hizo clic en el fondo del lienzo...
+    if (e.target === stage) {
+        // ...le decimos al transformer que olvide TODO lo que tenía seleccionado.
+        transformer.nodes([]);
+        mainLayer.draw();
+        return; // Salimos de la función inmediatamente.
+    }
+
+    // 3. IDENTIFICACIÓN PRECISA DEL OBJETIVO:
+    let targetNode;
+    const parentGroup = e.target.getParent();
+
+    // Comprobamos si el clic fue en una parte de un cable/splitter.
+    if (parentGroup && (parentGroup.hasName('cable') || parentGroup.hasName('splitter'))) {
+        targetNode = parentGroup; // El objetivo real es el grupo completo.
+    }
+    // Si no, comprobamos si fue directamente en una línea.
+    else if (e.target.hasName('connector')) {
+        targetNode = e.target; // El objetivo es la propia línea.
+    }
+    // Si no es un objeto seleccionable...
+    else {
+        transformer.nodes([]); // ...también deseleccionamos todo.
+        mainLayer.draw();
+        return;
+    }
+
+    // 4. ¡LA CORRECCIÓN MÁS IMPORTANTE! LA SELECCIÓN ÚNICA.
+    //    Al usar `transformer.nodes([targetNode])`, estamos REEMPLAZANDO la selección.
+    //    Esto BORRA la lista anterior de objetos seleccionados y la sustituye con una nueva
+    //    lista que contiene ÚNICAMENTE el 'targetNode' que acabamos de clickear.
+    //    Esto previene el "daño colateral" porque es imposible tener selecciones múltiples accidentales.
+    transformer.nodes([targetNode]);
+
+    // 5. MOSTRAR HERRAMIENTAS CONTEXTUALES:
+    //    Solo si el objeto recién seleccionado es una línea, llamamos a la función
+    //    que se encarga de mostrar sus manejadores 'X'.
+    if (targetNode.hasName('connector')) {
+        updateLineHandles(targetNode);
+    }
+    
+    // 6. REDIBUJAR: Mostramos los cambios en el lienzo (el nuevo cuadro de selección, etc.).
+    mainLayer.draw();
+}
+
+            
+
+            function calculateOrthogonalPoints(startPos, endPos) {
+                const midX = startPos.x + (endPos.x - startPos.x) / 2;
+                return [startPos.x, startPos.y, midX, startPos.y, midX, endPos.y, endPos.x, endPos.y];
+            }
+
+
+
+            // REEMPLAZA TU FUNCIÓN ACTUAL CON ESTA VERSIÓN CORREGIDA
+            function findElementAtPosition(pos) {
+                let closestElement = null;
+                let closestPointData = null;
+                let minDistance = 15; // Este es nuestro radio máximo de búsqueda
+
+                // Recorremos todos los cables y splitters
+                mainLayer.find('.cable, .splitter').forEach(group => {
+                    // Recorremos los puntos de conexión de cada grupo
+                    (group.attrs.connectionPoints || []).forEach((point, index) => {
+                        // Obtenemos la posición real del punto en el lienzo
+                        const transform = group.getAbsoluteTransform();
+                        const worldPoint = transform.point(point);
+
+                        // Calculamos la distancia desde el cursor a este punto
+                        const distance = Math.sqrt(Math.pow(worldPoint.x - pos.x, 2) + Math.pow(worldPoint.y - pos.y, 2));
+
+                        // ===================================================================
+                        // === ESTA ES LA LÓGICA CORREGIDA ==================================
+                        // ===================================================================
+                        // Si la distancia actual es MENOR que la mínima distancia que hemos encontrado hasta ahora...
+                        if (distance < minDistance) {
+                            // ...actualizamos la mínima distancia a este nuevo valor más pequeño.
+                            minDistance = distance;
+                            // Y guardamos este elemento y este punto como los "ganadores" actuales.
+                            closestElement = group;
+                            closestPointData = { point: point, index: index, worldPos: worldPoint };
+                        }
+                        // ===================================================================
+                    });
+                });
+
+                // Al final del recorrido, devolvemos el elemento y el punto que resultaron ser los más cercanos de todos.
+                return closestElement ? { element: closestElement, connectionPoint: closestPointData } : null;
+            }
+
+         
+          function handleLineDrawing(e) {
+    // Función auxiliar para obtener la posición del puntero (sin cambios)
+    function getPointerPosInLayer() {
+        const transform = mainLayer.getAbsoluteTransform().copy().invert();
+        const pos = stage.getPointerPosition();
+        if (!pos) return { x: 0, y: 0 };
+        return transform.point(pos);
+    }
+
+    let pos = getPointerPosInLayer();
+
+    // Lógica del PRIMER clic (para iniciar la línea). Esta parte no cambia.
+    if (!isDrawingLine) {
+        isDrawingLine = true;
+        lineStartPoint = pos;
+        startElement = findElementAtPosition(stage.getPointerPosition());
+
+        let lineColor = selectedCanvasColor;
+        if (startElement && startElement.connectionPoint.point.color) {
+            lineColor = startElement.connectionPoint.point.color;
+        }
+
+        if (!previewLine) {
+            previewLine = new Konva.Line({
+                stroke: lineColor,
+                strokeWidth: parseInt(brushSize.value),
+                dash: [8, 4],
+                name: 'connector_preview',
+                visible: false
+            });
+            mainLayer.add(previewLine);
+        }
+
+        previewLine.stroke(lineColor);
+        previewLine.points([lineStartPoint.x, lineStartPoint.y, pos.x, pos.y]);
+        previewLine.visible(true);
+        mainLayer.draw();
+    } 
+    // Lógica del SEGUNDO clic (para finalizar la línea). Aquí está la mejora.
+    else {
+        endElement = findElementAtPosition(stage.getPointerPosition());
+
+        if (lineStartPoint.x === pos.x && lineStartPoint.y === pos.y) {
+            abortLineDrawing();
+            return;
+        }
+
+        // =================================================================================
+        // =========== INICIO DE LA MODIFICACIÓN CLAVE =======================================
+        // =================================================================================
+        // 1. Tomamos el color inicial de la línea de previsualización como base.
+        let finalLineColor = previewLine.stroke();
+
+        // 2. ¡LA MAGIA OCURRE AQUÍ!
+        //    Comprobamos si el punto de DESTINO (endElement) tiene un color definido.
+        //    Si es así (por ejemplo, el círculo rojo de un cable), usamos ESE color.
+        if (endElement && endElement.connectionPoint.point.color) {
+            finalLineColor = endElement.connectionPoint.point.color;
+        }
+        // =================================================================================
+        // =========== FIN DE LA MODIFICACIÓN ==============================================
+        // =================================================================================
+
+        const finalLine = new Konva.Line({
+            points: [lineStartPoint.x, lineStartPoint.y, pos.x, pos.y],
+            stroke: finalLineColor, // Usamos el color final que acabamos de determinar
+            strokeWidth: parseInt(brushSize.value),
+            name: 'connector',
+            hitStrokeWidth: 20,
+            cableAId: startElement ? startElement.element.id() : null,
+            cableAConnIdx: startElement ? startElement.connectionPoint.index : null,
+            cableBId: endElement ? endElement.element.id() : null,
+            cableBConnIdx: endElement ? endElement.connectionPoint.index : null
+        });
+
+        attachPointAddingListener(finalLine);
+        mainLayer.add(finalLine);
+        if (!window.connectors) window.connectors = [];
+        window.connectors.push(finalLine);
+
+        abortLineDrawing();
+        transformer.nodes([finalLine]);
+        updateLineHandles(finalLine);
+    }
+}
+
+
+
+
+            function calculateAdaptiveLine(startPos, endPos) {
+                const dx = endPos.x - startPos.x;
+                const dy = endPos.y - startPos.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < 80) {
+                    return [startPos.x, startPos.y, endPos.x, endPos.y];
+                }
+
+                const controlDistance = Math.min(distance * 0.4, 100);
+
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    const midX1 = startPos.x + (dx > 0 ? controlDistance : -controlDistance);
+                    const midX2 = endPos.x - (dx > 0 ? controlDistance : -controlDistance);
+                    return [startPos.x, startPos.y, midX1, startPos.y, midX2, endPos.y, endPos.x, endPos.y];
+                } else {
+                    const midY1 = startPos.y + (dy > 0 ? controlDistance : -controlDistance);
+                    const midY2 = endPos.y - (dy > 0 ? controlDistance : -controlDistance);
+                    return [startPos.x, startPos.y, startPos.x, midY1, endPos.x, midY2, endPos.x, endPos.y];
+                }
+            }
+
+
+function updateConnectedLines(movedElement) {
+    // Obtenemos la matriz de transformación inversa de la capa.
+    // Esta matriz es la "traductora" que convierte coordenadas del mundo (con zoom) a coordenadas locales (sin zoom).
+    const layerTransform = mainLayer.getAbsoluteTransform().copy().invert();
+
+    window.connectors.forEach(connector => {
+        // Comprobamos si la línea está conectada al elemento que se movió.
+        if (connector.attrs.cableAId === movedElement.id() || connector.attrs.cableBId === movedElement.id()) {
+            const cableA = mainLayer.findOne('#' + connector.attrs.cableAId);
+            const cableB = mainLayer.findOne('#' + connector.attrs.cableBId);
+
+            if (cableA && cableB) {
+                // PASO 1: Obtenemos la posición ABSOLUTA (en el mundo con zoom) de los puntos de conexión.
+                const absPosA = cableA.getAbsoluteTransform().point(cableA.attrs.connectionPoints[connector.attrs.cableAConnIdx]);
+                const absPosB = cableB.getAbsoluteTransform().point(cableB.attrs.connectionPoints[connector.attrs.cableBConnIdx]);
+
+                // PASO 2: Usamos nuestra "traductora" para convertir esas posiciones absolutas a locales.
+                const localPosA = layerTransform.point(absPosA);
+                const localPosB = layerTransform.point(absPosB);
+
+                // PASO 3: Actualizamos los puntos de la línea usando las coordenadas LOCALES correctas.
+                const points = connector.points();
+                points[0] = localPosA.x;
+                points[1] = localPosA.y;
+                points[points.length - 2] = localPosB.x;
+                points[points.length - 1] = localPosB.y;
+                connector.points(points);
+
+                // Actualizamos la posición de los manejadores 'X' si existen.
+                updateLineHandles(connector);
+            }
+        }
+    });
+
+    // Redibujamos la capa para mostrar los cambios.
+    mainLayer.batchDraw();
+}
+
+
+
+
+function distanceToSegment(p, v, w) {
+    const l2 = (v.x - w.x)**2 + (v.y - w.y)**2;
+    if (l2 === 0) return Math.sqrt((p.x - v.x)**2 + (p.y - v.y)**2);
+    let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+    t = Math.max(0, Math.min(1, t));
+    const closestX = v.x + t * (w.x - v.x);
+    const closestY = v.y + t * (w.y - v.y);
+    return Math.sqrt((p.x - closestX)**2 + (p.y - closestY)**2);
+}
+
+
+function attachPointAddingListener(line) {
+    line.on('click tap', (evt) => {
+        // Esta parte no cambia: solo permitimos añadir puntos si estamos en modo selección
+        // y no estamos haciendo clic sobre un manejador 'X' existente.
+        if (currentMode !== 'select' || (evt.target.getParent() && evt.target.getParent().hasName('line_handle'))) {
+            return;
+        }
+
+        // ===================================================================
+        // === INICIO DE LA CORRECCIÓN CLAVE =================================
+        // ===================================================================
+
+        // 1. Función auxiliar para obtener la posición del puntero DENTRO de la capa
+        function getPointerPosInLayer() {
+            const transform = mainLayer.getAbsoluteTransform().copy().invert();
+            const pos = stage.getPointerPosition();
+            if (!pos) return null; // Prevenir error si el puntero está fuera
+            return transform.point(pos);
+        }
+
+        // 2. Usamos la nueva posición LOCAL en lugar de la global.
+        const clickPos = getPointerPosInLayer();
+        if (!clickPos) return; // Salimos si no se pudo obtener la posición
+
+        // ===================================================================
+        // === FIN DE LA CORRECCIÓN ==========================================
+        // ===================================================================
+
+        const points = line.points();
+        
+        // La lógica para encontrar el segmento más cercano ahora funcionará correctamente
+        // porque `clickPos` y los puntos de la línea están en el mismo sistema de coordenadas.
+        let bestSegmentIndex = 0;
+        let minDistance = Infinity;
+
+        // El bucle de búsqueda no necesita cambios
+        for (let i = 0; i < points.length - 2; i += 2) {
+            // Transformamos los puntos de la línea a coordenadas absolutas para la comparación
+            const p1 = line.getAbsoluteTransform().point({ x: points[i], y: points[i + 1] });
+            const p2 = line.getAbsoluteTransform().point({ x: points[i + 2], y: points[i + 3] });
+            
+            // Usamos la posición global del puntero para la distancia, ya que los puntos de la línea también son globales ahora
+            const dist = distanceToSegment(stage.getPointerPosition(), p1, p2);
+            if (dist < minDistance) {
+                minDistance = dist;
+                bestSegmentIndex = i + 2;
+            }
+        }
+        
+        // Insertamos el nuevo punto LOCAL (x, y) en el array de puntos de la línea.
+        points.splice(bestSegmentIndex, 0, clickPos.x, clickPos.y);
+        line.points(points);
+        
+        // Actualizamos los manejadores para que aparezca el nuevo.
+        updateLineHandles(line);
+    });
+}
+
+
+            function restoreOriginalShape() {
+                mainLayer.find('.connector').forEach(line => {
+                    if (line.attrs.startConnection && line.attrs.endConnection) {
+                        const startTransform = line.attrs.startConnection.element.getAbsoluteTransform();
+                        const endTransform = line.attrs.endConnection.element.getAbsoluteTransform();
+                        const startPos = startTransform.point(line.attrs.startConnection.connectionPoint.point);
+                        const endPos = endTransform.point(line.attrs.endConnection.connectionPoint.point);
+                        line.points(calculateOrthogonalPoints(startPos, endPos));
+                        line.tension(0);
+                    }
+                });
+                mainLayer.draw();
+            }
+
+             function abortLineDrawing() {
+                isDrawingLine = false;
+                if (previewLine) previewLine.destroy();
+                previewLine = null;
+                startElement = null;
+                endElement = null;
+                snapIndicator.hide();
+                mainLayer.draw();
+            } 
+ 
+
+            function getSnapPoint(pos) {
+                let closestPoint = null;
+                let minDistance = 15;
+                mainLayer.find('.cable, .splitter').forEach(group => {
+                    (group.attrs.connectionPoints || []).forEach(point => {
+                        const transform = group.getAbsoluteTransform();
+                        const worldPoint = transform.point(point);
+                        const distance = Math.sqrt(Math.pow(worldPoint.x - pos.x, 2) + Math.pow(worldPoint.y - pos.y, 2));
+                        if (distance < minDistance) {
+                            minDistance = distance;
+                            closestPoint = worldPoint;
+                        }
+                    });
+                });
+                return closestPoint;
+            }
+             
+
+            componentControls.addEventListener('click', (e) => {
+    const target = e.target;
+    if (target.tagName !== 'BUTTON') return;
+
+    // =========== NUEVO ===========
+    // Lógica para el botón de autoconexión
+    if (target.id === 'autoConnectBtn') {
+        autoConnectLastTwoCables();
+        return; // Salimos para no generar un cable nuevo
+    }
+    // =============================
+
+
+    // Decidimos la dirección (derecha/izquierda) basándonos en el contador.
+    // Esta lógica ya la tenías y es correcta.
+    const direction = (cableCreationCounter % 2 === 0) ? 'right' : 'left';
+    const initialX = (direction === 'right') ? 100 : stage.width() - 100;
+
+    // CASO 1: Es un botón de cable simple (data-strands)
+    if (target.dataset.strands) {
+        const newCable = createCableGroup(parseInt(target.dataset.strands), direction);
+        newCable.position({ x: initialX, y: 250 });
+        mainLayer.add(newCable);
+    }
+    // CASO 2: Es el nuevo botón de multi-cable (data-multi-cable)
+    else if (target.dataset.multiCable) {
+        const [strands, cables] = target.dataset.multiCable.split('x').map(Number); // "12x4" -> [12, 4]
+        
+        // Llamamos a nuestra nueva función para crear el bloque de 4 cables.
+        const newBlock = createMultiCableBlock(strands, cables, direction);
+        newBlock.position({ x: initialX, y: 150 }); // Lo ponemos un poco más arriba
+        mainLayer.add(newBlock);
+    }
+    // CASO 3: Es un botón de splitter
+    else if (target.dataset.splitterOut) {
+        const splitterGroup = createSplitterGroup(1, parseInt(target.dataset.splitterOut));
+        splitterGroup.position({ x: 750 - 150, y: 250 });
+        mainLayer.add(splitterGroup);
+    }
+
+    // Incrementamos el contador para la próxima vez, sin importar qué botón se pulsó.
+    cableCreationCounter++;
+    
+    mainLayer.draw();
+});
+
+           
+function createCableGroup(numStrands, direction = 'right', bufferLineColor = null) {
+    const groupId = 'cable_' + nodeIdCounter++;
+    const group = new Konva.Group({ id: groupId, draggable: true, name: 'cable', connectionPoints: [] });
+
+    group.attrs.direction = direction;
+
+    const directionMultiplier = (direction === 'left') ? -1 : 1;
+    const lineThickness = 3, verticalSpacing = 15, cableWidth = 30;
+    const circleRadius = 8;
+    const fontSize = 10;
+    const finalX = cableWidth * directionMultiplier;
+    const totalHeight = (numStrands - 1) * verticalSpacing;
+    const startY = -totalHeight / 2;
+    let firstLineY, lastLineY;
+
+    const colorsToUse = CABLE_COLOR_PALETTES[numStrands] || CABLE_COLOR_PALETTES.default;
+    group.attrs.strandColors = [];
+
+    // --- PASO 1: Dibujar todos los componentes de los hilos (siempre van al frente) ---
+    for (let i = 0; i < numStrands; i++) {
+        const currentY = startY + (i * verticalSpacing);
+        const strandColor = colorsToUse[i % colorsToUse.length];
+        group.attrs.strandColors.push(strandColor);
+
+        if (i === 0) firstLineY = currentY;
+        if (i === numStrands - 1) lastLineY = currentY;
+
+        const linePoints = [0, currentY, finalX, currentY];
+        if (strandColor === '#ffffff') {
+            group.add(new Konva.Line({ points: linePoints, stroke: 'black', strokeWidth: lineThickness, lineCap: 'round', listening: false }));
+            group.add(new Konva.Line({ points: linePoints, stroke: strandColor, strokeWidth: lineThickness - 1.5, lineCap: 'round', listening: false }));
+        } else {
+            group.add(new Konva.Line({ points: linePoints, stroke: strandColor, strokeWidth: lineThickness, lineCap: 'round', listening: false }));
+        }
+
+        const circleX = finalX + (circleRadius * directionMultiplier);
+        group.attrs.connectionPoints.push({ x: circleX, y: currentY, color: strandColor, index: i });
+        const circle = new Konva.Circle({ x: circleX, y: currentY, radius: circleRadius, fill: 'white', stroke: strandColor, strokeWidth: 2, listening: false });
+        group.add(circle);
+        const numberText = new Konva.Text({ x: circleX - circleRadius, y: currentY - circleRadius, width: circleRadius * 2, height: circleRadius * 2, align: 'center', verticalAlign: 'middle', text: (i + 1).toString(), fontSize: fontSize, fill: 'black', listening: false });
+        group.add(numberText);
+    }
+    
+    // --- PASO 2: Añadir los elementos de fondo ---
+    const mainVerticalLine = new Konva.Line({
+        points: [0, firstLineY, 0, lastLineY],
+        stroke: 'black',
+        strokeWidth: lineThickness,
+        lineCap: 'round',
+        listening: false
+    });
+    group.add(mainVerticalLine);
+
+    let bufferLine = null;
+    if (bufferLineColor) {
+        bufferLine = new Konva.Line({
+            // =================================================================================
+            // === ESTA ES LA CORRECCIÓN CLAVE: Se ajustaron las coordenadas Y ===============
+            // =================================================================================
+            points: [
+                0, startY + 70,                         // Punto de inicio: más arriba
+                -20 * directionMultiplier, startY + 90  // Punto final: más abajo (Y mayor)
+            ],
+            // =================================================================================
+            stroke: bufferLineColor,
+            strokeWidth: 5,
+            listening: false,
+            name: 'buffer_line'
+        });
+        group.add(bufferLine);
+    }
+    
+    // --- PASO 3: Crear el hitbox DESPUÉS de que todo lo visible esté añadido ---
+    const hitbox = new Konva.Rect({ ...group.getClientRect({ relativeTo: group }), fill: 'transparent' });
+    group.add(hitbox);
+
+    // --- PASO 4: Establecer el orden de apilado (esta parte ya es correcta) ---
+    mainVerticalLine.moveToBottom();
+    if (bufferLine) {
+        bufferLine.moveToBottom();
+    }
+    hitbox.moveToBottom();
+    
+    // --- PASO 5: Asignar eventos ---
+    group.on('dragmove', () => updateConnectedLines(group));
+    group.on('transform', () => updateConnectedLines(group));
+
+    return group;
+}
+
+
+
+// =============================================================================
+// =========== NUEVA FUNCIÓN COMPLETA: Lógica de la autoconexión ===========
+// =============================================================================
+/**
+ * Busca los dos últimos cables individuales creados, comprueba que sean opuestos 
+ * (uno derecho, uno izquierdo) y los conecta automáticamente uniendo los hilos del mismo color.
+ */
+
+function autoConnectLastTwoCables() {
+
+    // CASO 1: Intentar conectar BLOQUES de cables (ej: 12x4 vs 12x4, o 12x8 vs 12x8)
+    const allBlocks = mainLayer.find('.cable_block');
+    if (allBlocks.length >= 2) {
+        const lastTwoBlocks = allBlocks.slice(-2);
+        const block1 = lastTwoBlocks[0];
+        const block2 = lastTwoBlocks[1];
+
+        // Obtenemos la dirección del primer cable DENTRO de cada bloque para saber la orientación del bloque.
+        const dir1 = block1.findOne('.cable')?.attrs.direction;
+        const dir2 = block2.findOne('.cable')?.attrs.direction;
+
+        // Si los bloques son opuestos, procedemos a conectarlos
+        if (dir1 && dir2 && dir1 !== dir2) {
+            const cables1 = block1.find('.cable');
+            const cables2 = block2.find('.cable');
+
+            // Verificación de seguridad: los bloques deben tener el mismo número de cables internos.
+            if (cables1.length !== cables2.length) {
+                alert("Error: Los bloques de cables no tienen el mismo número de cables internos y no se pueden conectar.");
+                return;
+            }
+
+            console.log(`✅ Detectados dos bloques opuestos. Iniciando conexión de bloques...`);
+            const layerTransform = mainLayer.getAbsoluteTransform().copy().invert();
+
+            // Iteramos por cada cable DENTRO de los bloques (el 1ro de aquí con el 1ro de allá, etc.)
+            for (let i = 0; i < cables1.length; i++) {
+                const cableA = cables1[i];
+                const cableB = cables2[i];
+
+                // Ahora, para cada par de cables, conectamos sus hilos por índice
+                cableA.attrs.connectionPoints.forEach(pointA => {
+                    const pointB = cableB.attrs.connectionPoints.find(p => p.index === pointA.index);
+                    if (pointB) {
+                        // Es CRUCIAL usar getAbsoluteTransform() para obtener la posición real del hilo en el lienzo,
+                        // ya que está dentro de un cable, que a su vez está dentro de un bloque.
+                        const absPosA = cableA.getAbsoluteTransform().point(pointA);
+                        const absPosB = cableB.getAbsoluteTransform().point(pointB);
+
+                        // Convertimos de vuelta a coordenadas locales de la capa para crear la línea
+                        const localPosA = layerTransform.point(absPosA);
+                        const localPosB = layerTransform.point(absPosB);
+
+                        const newLine = new Konva.Line({
+                            points: [localPosA.x, localPosA.y, localPosB.x, localPosB.y],
+                            stroke: pointA.color,
+                            strokeWidth: parseInt(brushSize.value),
+                            name: 'connector',
+                            hitStrokeWidth: 20,
+                            cableAId: cableA.id(),
+                            cableAConnIdx: pointA.index,
+                            cableBId: cableB.id(),
+                            cableBConnIdx: pointB.index
+                        });
+
+                        attachPointAddingListener(newLine);
+                        mainLayer.add(newLine);
+                        if (!window.connectors) window.connectors = [];
+                        window.connectors.push(newLine);
+                    }
+                });
+            }
+            mainLayer.draw();
+            console.log(`✅ Autoconexión de bloques completada.`);
+            return; // ¡Importante! Terminamos la ejecución aquí para no pasar a la lógica de cables individuales.
+        }
+    }
+
+    // CASO 2: Si no se encontraron bloques, buscar CABLES INDIVIDUALES (lógica de respaldo)
+    console.log("No se encontraron bloques opuestos, buscando cables individuales...");
+    const singleCables = mainLayer.find('.cable').filter(c => {
+        const parent = c.getParent();
+        return parent && !parent.hasName('cable_block');
+    });
+
+    if (singleCables.length < 2) {
+        alert("No se encontraron dos cables individuales opuestos para conectar.");
+        return;
+    }
+
+    const lastTwoCables = singleCables.slice(-2);
+    const cable1 = lastTwoCables[0];
+    const cable2 = lastTwoCables[1];
+
+    if (cable1.attrs.direction === cable2.attrs.direction) {
+        alert("Los dos últimos cables individuales generados no son opuestos.");
+        return;
+    }
+    if (cable1.attrs.connectionPoints.length !== cable2.attrs.connectionPoints.length) {
+        alert("Error: Los cables individuales no tienen el mismo número de hilos.");
+        return;
+    }
+
+    const layerTransform = mainLayer.getAbsoluteTransform().copy().invert();
+    cable1.attrs.connectionPoints.forEach(point1 => {
+        const matchingPoint2 = cable2.attrs.connectionPoints.find(p2 => p2.index === point1.index);
+        if (matchingPoint2) {
+            const absPos1 = cable1.getAbsoluteTransform().point(point1);
+            const absPos2 = cable2.getAbsoluteTransform().point(matchingPoint2);
+            const localPos1 = layerTransform.point(absPos1);
+            const localPos2 = layerTransform.point(absPos2);
+
+            const newLine = new Konva.Line({
+                points: [localPos1.x, localPos1.y, localPos2.x, localPos2.y],
+                stroke: point1.color,
+                strokeWidth: parseInt(brushSize.value),
+                name: 'connector',
+                hitStrokeWidth: 20,
+                cableAId: cable1.id(),
+                cableAConnIdx: point1.index,
+                cableBId: cable2.id(),
+                cableBConnIdx: matchingPoint2.index
+            });
+            attachPointAddingListener(newLine);
+            mainLayer.add(newLine);
+            if (!window.connectors) window.connectors = [];
+            window.connectors.push(newLine);
+        }
+    });
+
+    mainLayer.draw();
+    console.log(`✅ Autoconexión de cables individuales completada.`);
+}
+
+            @* function createSplitterGroup(numInputs, numOutputs) {
+    const groupId = 'splitter_' + nodeIdCounter++;
+    const group = new Konva.Group({ id: groupId, draggable: true, name: 'splitter', connectionPoints: [] });
+
+    // --- 1. NUEVAS CONSTANTES PARA LOS CUADRADOS NUMERADOS ---
+    const spacing = 20, width = 60, height = (numOutputs - 1) * spacing;
+    const boxSize = 15;  // Tamaño del cuadrado
+    const fontSize = 10; // Tamaño del número
+
+    // Punto de conexión de entrada (sin cambios)
+    //group.attrs.connectionPoints.push({ x: 0, y: 0 });
+    group.attrs.connectionPoints.push({ x: 0, y: 0, index: 0 });
+
+
+    // Hitbox y forma del splitter (sin cambios)
+    const hitbox = new Konva.Rect({ x: 0, y: -height / 2, width: width, height: height, fill: 'transparent' });
+    group.add(hitbox);
+    group.add(new Konva.Line({
+        points: [0, 0, width, -height / 2, width, height / 2],
+        closed: true,
+        fill: 'white',
+        stroke: 'black',
+        strokeWidth: 2,
+        listening: false
+    }));
+
+    // Círculo de entrada (sin cambios)
+    group.add(new Konva.Circle({ x: 0, y: 0, radius: 5, fill: 'black', listening: false }));
+
+    // ===================================================================
+    // === INICIO DE LA MODIFICACIÓN: Bucle para Salidas Numeradas =======
+    // ===================================================================
+    for (let i = 0; i < numOutputs; i++) {
+        const y = -height / 2 + i * spacing;
+
+        // El punto de conexión sigue estando en el centro, esto es correcto.
+        //group.attrs.connectionPoints.push({ x: width, y: y });
+
+        group.attrs.connectionPoints.push({ x: width, y: y, index: i + 1 });
+
+        // 2. Creamos el Cuadrado (Konva.Rect)
+        // La posición (x, y) de un rectángulo es su esquina superior izquierda,
+        // así que restamos la mitad del tamaño para centrarlo.
+        const rect = new Konva.Rect({
+            x: width - boxSize / 2,
+            y: y - boxSize / 2,
+            width: boxSize,
+            height: boxSize,
+            fill: 'white',
+            stroke: 'black',
+            strokeWidth: 2,
+            listening: false
+        });
+        group.add(rect);
+
+        // 3. Creamos el Texto con el número
+        // Usamos la misma posición y tamaño para centrar el texto dentro del cuadrado.
+        const numberText = new Konva.Text({
+            x: width - boxSize / 2,
+            y: y - boxSize / 2,
+            width: boxSize,
+            height: boxSize,
+            text: (i + 1).toString(), // El número es el índice + 1
+            fontSize: fontSize,
+            fill: 'black',
+            align: 'center',       // Centrado horizontal
+            verticalAlign: 'middle', // Centrado vertical
+            listening: false
+        });
+        group.add(numberText);
+    }
+
+     //añado esto para colocar comentario en el spliter
+          const descriptionText = new Konva.Text({
+    x: width / 2, // <-- CAMBIO 1: Lo movemos a la mitad del ancho del splitter
+    y: (height / 2) + 8, // <-- CAMBIO 2: Lo bajamos un poco más para que respire
+    text: '',
+    fontSize: 11, // Un poco más pequeño y discreto
+    fontFamily: 'Arial, sans-serif', // Una fuente más estándar y legible
+    fontStyle: 'italic', // <-- CAMBIO 3: Estilo en cursiva para que parezca un comentario
+    fill: '#555555', // <-- CAMBIO 4: Un gris oscuro, más suave que el negro
+    width: width + 20, // Hacemos la caja un poco más ancha para textos largos
+    align: 'center',
+    offsetX: (width + 20) / 2, // <-- CAMBIO 5 (EL MÁS IMPORTANTE): Este es el truco para el centrado perfecto.
+    name: 'description_text'
+});
+    group.add(descriptionText);
+
+    // 2. AÑADIMOS EL EVENTO DE DOBLE CLIC AL GRUPO COMPLETO
+    group.on('dblclick dbltap', () => {
+        // Obtenemos la descripción actual guardada en el grupo, o un string vacío si no existe
+        const oldDescription = group.attrs.description || '';
+        
+        // Usamos un 'prompt' de JavaScript. Es simple y efectivo.
+        const newDescription = prompt("Descripción del Splitter:", oldDescription);
+
+        // Si el usuario escribió algo y no presionó "Cancelar" (que devuelve null)
+        if (newDescription !== null) {
+            // Guardamos el nuevo texto como un atributo personalizado en el grupo.
+            // ¡ESTO ES LO QUE SE GUARDARÁ EN EL JSON!
+            group.setAttr('description', newDescription);
+            
+            // Actualizamos el texto visual del nodo que creamos antes.
+            descriptionText.text(newDescription);
+            
+            // Redibujamos la capa para que se vea el cambio.
+            mainLayer.draw();
+        }
+    });
+ 
+    
+    // Eventos (sin cambios)
+    group.on('dragmove', () => updateConnectedLines(group));
+    group.on('transform', () => updateConnectedLines(group));
+    // Eliminamos 'dragend' si ya no usas restoreOriginalShape
+    // group.on('dragend', () => restoreOriginalShape());
+
+    return group;
+} *@
+
+
+function createSplitterGroup(numInputs, numOutputs) {
+    const groupId = 'splitter_' + nodeIdCounter++;
+    const group = new Konva.Group({ id: groupId, draggable: true, name: 'splitter', connectionPoints: [] });
+
+    const spacing = 20, width = 60, height = (numOutputs - 1) * spacing;
+    const boxSize = 15;
+    const fontSize = 10;
+
+    // Punto de conexión de entrada
+    group.attrs.connectionPoints.push({ x: 0, y: 0, index: 0 });
+
+    // Hitbox y forma del splitter
+    const hitbox = new Konva.Rect({ x: 0, y: -height / 2, width: width, height: height, fill: 'transparent' });
+    group.add(hitbox);
+    group.add(new Konva.Line({
+        points: [0, 0, width, -height / 2, width, height / 2],
+        closed: true,
+        fill: 'white',
+        stroke: 'black',
+        strokeWidth: 2,
+        listening: false
+    }));
+
+    // Círculo de entrada
+    group.add(new Konva.Circle({ x: 0, y: 0, radius: 5, fill: 'black', listening: false }));
+
+    // ===================================================================
+    // === PUERTOS DE SALIDA CON CUADRADOS NUMERADOS Y DESCRIPCIÓN ======
+    // ===================================================================
+    for (let i = 0; i < numOutputs; i++) {
+        const y = -height / 2 + i * spacing;
+
+        // ✅ CADA PUERTO TIENE SU PROPIO CAMPO description
+        group.attrs.connectionPoints.push({ 
+            x: width, 
+            y: y, 
+            index: i + 1,
+            description: '' // 👈 Comentario individual por puerto
+        });
+
+        // Cuadrado numerado
+        const rect = new Konva.Rect({
+            x: width - boxSize / 2,
+            y: y - boxSize / 2,
+            width: boxSize,
+            height: boxSize,
+            fill: 'white',
+            stroke: 'black',
+            strokeWidth: 2,
+            listening: true // ✅ IMPORTANTE: Para poder hacer doble clic
+        });
+        group.add(rect);
+
+        // Número dentro del cuadrado
+        const numberText = new Konva.Text({
+            x: width - boxSize / 2,
+            y: y - boxSize / 2,
+            width: boxSize,
+            height: boxSize,
+            text: (i + 1).toString(),
+            fontSize: fontSize,
+            fill: 'black',
+            align: 'center',
+            verticalAlign: 'middle',
+            listening: false
+        });
+        group.add(numberText);
+    }
+
+    // ===================================================================
+    // === DESCRIPCIÓN GENERAL DEL SPLITTER (LA QUE YA TENÍAS) ==========
+    // ===================================================================
+    const descriptionText = new Konva.Text({
+        x: width / 2,
+        y: (height / 2) + 8,
+        text: '',
+        fontSize: 11,
+        fontFamily: 'Arial, sans-serif',
+        fontStyle: 'italic',
+        fill: '#555555',
+        width: width + 20,
+        align: 'center',
+        offsetX: (width + 20) / 2,
+        name: 'description_text'
+    });
+    group.add(descriptionText);
+
+    // ===================================================================
+    // === EVENTO DE DOBLE CLIC EN EL GRUPO (DESCRIPCIÓN GENERAL) =======
+    // ===================================================================
+    group.on('dblclick dbltap', () => {
+        const oldDescription = group.attrs.description || '';
+        const newDescription = prompt("Descripción General del Splitter:", oldDescription);
+
+        if (newDescription !== null) {
+            group.setAttr('description', newDescription);
+            descriptionText.text(newDescription);
+            mainLayer.draw();
+        }
+    });
+
+    // ===================================================================
+    // === NUEVO: EVENTOS DE DOBLE CLIC EN CADA PUERTO ==================
+    // ===================================================================
+    group.find('Rect').forEach((rect, index) => {
+        // Ignoramos el hitbox (índice 0)
+        if (index === 0) return;
+        
+        const portIndex = index; // El índice del puerto
+        
+        rect.on('dblclick dbltap', (e) => {
+            e.cancelBubble = true; // ✅ Evita que el evento suba al grupo
+            
+            const port = group.attrs.connectionPoints[portIndex];
+            if (!port) return;
+            
+            const oldDescription = port.description || '';
+            const newDescription = prompt(`Comentario para Puerto ${port.index}:`, oldDescription);
+            
+            if (newDescription !== null) {
+                port.description = newDescription;
+                displayPortComments(group);
+                mainLayer.draw();
+            }
+        });
+    });
+
+    // Eventos de movimiento
+    group.on('dragmove', () => updateConnectedLines(group));
+    group.on('transform', () => updateConnectedLines(group));
+
+    return group;
+}
+
+
+
+
+
+// 🆕 FUNCIÓN PARA MOSTRAR LOS COMENTARIOS DE CADA PUERTO
+function displayPortComments(splitterGroup) {
+    if (!splitterGroup) return;
+
+    // Primero, borramos todos los comentarios antiguos
+    splitterGroup.find('.port_comment_text').forEach(text => text.destroy());
+
+    const connectionPoints = splitterGroup.attrs.connectionPoints || [];
+    const width = 60;
+
+    connectionPoints.forEach(port => {
+        // Si el puerto tiene descripción y no es el de entrada (index 0)
+        if (port.description && port.index > 0) {
+            const commentText = new Konva.Text({
+                x: width + 20,
+                y: port.y - 6,
+                text: port.description,
+                fontSize: 10,
+                fontFamily: 'Arial, sans-serif',
+                fontStyle: 'italic',
+                fill: '#0066cc',
+                name: 'port_comment_text',
+                listening: false
+            });
+            splitterGroup.add(commentText);
+        }
+    });
+}
+
+
+//este es el codigo que estoy usando pero esta comenatdo para probar otro
+function createMultiCableBlock(numStrands, numCables, direction) {
+    const blockGroup = new Konva.Group({
+        draggable: true,
+        name: 'cable_block'
+    });
+
+    const blockSpacing = 20;
+
+    for (let i = 0; i < numCables; i++) {
+        // ===================================================================
+        // === CAMBIO CLAVE: Obtenemos el color del buffer para este cable ===
+        // ===================================================================
+        // Usamos el índice 'i' para sacar el color correspondiente del código estándar.
+        // El '%' (módulo) es por seguridad, si se crearan más de 12 cables, volvería a empezar por el azul.
+        const bufferLineColor = CABLE_COLOR_PALETTES.default[i % CABLE_COLOR_PALETTES.default.length];
+        
+        // Y ahora pasamos ese color al crear el cable individual.
+        const singleCable = createCableGroup(numStrands, direction, bufferLineColor);
+        // ===================================================================
+        
+        const cableHeight = (numStrands - 1) * 15 + 2 * 8;
+        const yPos = i * (cableHeight + blockSpacing);
+
+        singleCable.position({ x: 0, y: yPos });
+        singleCable.draggable(false);
+        blockGroup.add(singleCable);
+    }
+
+    blockGroup.on('dragmove transform', () => {
+        blockGroup.find('.cable').forEach(singleCable => {
+            updateConnectedLines(singleCable);
+        });
+    });
+
+    return blockGroup;
+}
+
+
+
+function updateLineHandles(line) {
+    // Primero, eliminamos todos los manejadores antiguos asociados con esta línea para evitar duplicados.
+    mainLayer.find('.line_handle').forEach(handle => {
+        if (handle.attrs.line === line) {
+            handle.destroy();
+        }
+    });
+
+    // Si la línea no está seleccionada, no hacemos nada más.
+    if (!transformer.nodes().includes(line)) {
+        mainLayer.draw();
+        return;
+    }
+
+    const points = line.points();
+    // Creamos un manejador para cada PUNTO INTERMEDIO de la línea.
+    // (Ignoramos el primer y último punto, que están anclados a los cables).
+    for (let i = 2; i < points.length - 2; i += 2) {
+        const x = points[i];
+        const y = points[i + 1];
+        const pointIndex = i; // Guardamos el índice de este punto
+
+        const handle = new Konva.Group({
+            x: x,
+            y: y,
+            draggable: true,
+            name: 'line_handle'
+        });
+
+        // Guardamos la referencia a la línea y al índice del punto en el manejador.
+        handle.attrs.line = line;
+        handle.attrs.pointIndex = pointIndex;
+
+        handle.add(new Konva.Circle({ radius: 8, fill: '#dc3545', stroke: 'black', strokeWidth: 1 }));
+        handle.add(new Konva.Text({ text: 'X', fontSize: 12, fill: 'white', fontStyle: 'bold', width: 16, height: 16, x: -8, y: -8, align: 'center', verticalAlign: 'middle' }));
+        
+        mainLayer.add(handle);
+
+        // EVENTO DE ARRASTRE: Mueve el punto en el array de la línea.
+        handle.on('dragmove', () => {
+            const lineToUpdate = handle.attrs.line;
+            const index = handle.attrs.pointIndex;
+            const points = lineToUpdate.points();
+            
+            points[index] = handle.x();
+            points[index + 1] = handle.y();
+            lineToUpdate.points(points);
+        });
+
+        // EVENTO DE CLIC: Elimina el punto del array de la línea.
+        handle.on('click tap', () => {
+            const lineToUpdate = handle.attrs.line;
+            const index = handle.attrs.pointIndex;
+            const points = lineToUpdate.points();
+
+            // Eliminamos el par de coordenadas (x, y) del array de puntos.
+            points.splice(index, 2);
+            lineToUpdate.points(points);
+
+            // Volvemos a dibujar los manejadores, que ahora serán menos.
+            updateLineHandles(lineToUpdate);
+        });
+    }
+    mainLayer.find('.line_handle').forEach(h => h.moveToTop());
+}
+
+
+
+
+            // =========================================================================
+            // === NUEVO SISTEMA DE GUARDADO SVG + JSON ================================
+            // =========================================================================
+
+            /**
+             * 🎯 NUEVA FUNCIÓN: Genera tanto JSON como SVG del dibujo actual
+             */
+            function generarDatosCompletos() {
+                // 1. JSON (para edición)
+                const jsonData = stage.toJSON();
+
+                // 2. Preparar para exportar SVG
+                transformer.nodes([]);  // quita selección
+                snapIndicator.hide();
+                mainLayer.draw();
+
+                // 3. Exportar a SVG de manera segura
+                let svgData = null;
+                if (stage.toSVG) {
+                    try {
+                        svgData = stage.toSVG();
+                    } catch (err) {
+                        console.error("❌ Error al exportar SVG:", err);
+                        svgData = "<!-- Error en exportación -->";
+                    }
+                } else if (Konva && Konva.exportToSVG) {
+                    svgData = Konva.exportToSVG(stage);
+                } else {
+                    console.warn("⚠️ Exportación SVG no disponible.");
+                    svgData = "<!-- Exportación SVG no disponible -->";
+                }
+
+                return {
+                    jsonContent: jsonData,
+                    svgContent: svgData
+                };
+            }
+
+
+
+              window.cargarDesdeJSON = function (dataFromAjax) {
+                try {
+                    let jsonData;
+                    // Se asegura de que jsonData sea un string para poder parsearlo después
+                    if (typeof dataFromAjax === 'object' && dataFromAjax !== null) {
+                        jsonData = JSON.stringify(dataFromAjax);
+                    } else if (typeof dataFromAjax === 'string' && dataFromAjax.trim() !== '') {
+                        jsonData = dataFromAjax;
+                    } else {
+                        throw new Error("Los datos recibidos no son un JSON válido.");
+                    }
+
+                    if (stage) {
+                        stage.destroy();
+                    }
+
+                    // ===================================================================
+                    // =========== ESTE ES EL CAMBIO FUNDAMENTAL Y CORRECTO ==============
+                    // ===================================================================
+
+                    // 1. CREAMOS UN NUEVO LIENZO VACÍO CON LAS DIMENSIONES ACTUALES Y CORRECTAS
+                    const container = document.getElementById('konva-container');
+                    stage = new Konva.Stage({
+                        container: 'konva-container',
+                        width: container.clientWidth,
+                        height: container.clientHeight
+                    });
+
+                    // 2. AHORA, CREAMOS LA CAPA A PARTIR DE LOS "HIJOS" DEL JSON
+                    const data = JSON.parse(jsonData);
+                    // data.children[0] es el objeto de la capa principal guardado en el JSON
+                    mainLayer = Konva.Node.create(data.children[0]);
+                    stage.add(mainLayer); // La añadimos a nuestro nuevo lienzo grande
+
+                    // ===================================================================
+
+                    // Vuelve a inicializar el zoom y paneo en el NUEVO stage.
+                      setupZoomAndPan(stage);
+
+                    // 3. (Opcional pero recomendado) Aplicamos el "clip fix" por si acaso
+                    if (mainLayer) {
+                        mainLayer.clipFunc(null);
+                        mainLayer.clipX(undefined);
+                        mainLayer.clipY(undefined);
+                        mainLayer.clipWidth(undefined);
+                        mainLayer.clipHeight(undefined);
+                    }
+
+                    // 4. Re-añadimos las herramientas a la nueva capa
+                    transformer = new Konva.Transformer({ /* ... tus propiedades ... */ });
+                    snapIndicator = new Konva.Circle({ /* ... tus propiedades ... */ });
+                    mainLayer.add(transformer, snapIndicator);
+
+                    // 5. Reconectamos los eventos
+                    reconectarEventos();
+
+                    // =========================================================================
+        // === LÍNEA AÑADIDA: Aquí ocurre la magia del centrado automático ========
+        // =========================================================================
+        centerAndFitContent(stage, mainLayer);
+        // =========================================================================
+
+                    // 6. ¡AHORA SÍ! Dibujamos todo en el lienzo ya grande.
+                    stage.draw();
+
+                    console.log("✅ Dibujo cargado en un nuevo lienzo con las dimensiones correctas.");
+
+                } catch (error) {
+                    console.error("❌ Error CRÍTICO dentro de cargarDesdeJSON:", error);
+                    alert("Error final al procesar los datos del dibujo: " + error.message);
+                }
+            }; 
+
+           // =========================================================================
+// === NUEVA FUNCIÓN DE AYUDA: Centrar y ajustar el contenido cargado =====
+// =========================================================================
+            function centerAndFitContent(stage, layer, padding = 0.9) {
+    if (!layer) return;
+
+    // 1. Obtener el rectángulo que envuelve a TODOS los elementos de la capa.
+    const box = layer.getClientRect();
+
+    // Si no hay nada en la capa o no tiene dimensiones, no hacemos nada.
+    if (box.width === 0 || box.height === 0) {
+        // Simplemente reseteamos la vista a la posición inicial
+        stage.position({ x: 0, y: 0 });
+        stage.scale({ x: 1, y: 1 });
+        stage.draw();
+        return;
+    }
+
+    const stageWidth = stage.width();
+    const stageHeight = stage.height();
+
+    // 2. Calcular el nivel de zoom necesario para que el contenido quepa.
+    // Comparamos el ancho del lienzo con el ancho del contenido, y lo mismo con el alto.
+    // Usamos la escala más pequeña de las dos para asegurarnos de que todo entre sin ser cortado.
+    const scaleX = stageWidth / box.width;
+    const scaleY = stageHeight / box.height;
+    const scale = Math.min(scaleX, scaleY) * padding;
+
+    // 3. Calcular la nueva posición del lienzo.
+    // Queremos que el centro del contenido coincida con el centro del lienzo visible.
+    const newPos = {
+        x: -box.x * scale + (stageWidth - box.width * scale) / 2,
+        y: -box.y * scale + (stageHeight - box.height * scale) / 2,
+    };
+
+    // 4. Aplicar la nueva escala y posición al lienzo.
+    stage.scale({ x: scale, y: scale });
+    stage.position(newPos);
+    stage.draw();
+
+    console.log("✅ Contenido cargado y centrado en la vista.");
+}
+
+@* function reconectarEventos() {
+    if (!stage || !mainLayer) return;
+
+    // Sincronizar el contador de IDs (esto ya estaba bien y se mantiene)
+    let maxId = -1;
+    mainLayer.find('.cable, .splitter').forEach(group => {
+        const id = group.id();
+        if (id) {
+            const numericPart = parseInt(id.split('_')[1], 10);
+            if (!isNaN(numericPart) && numericPart > maxId) {
+                maxId = numericPart;
+            }
+        }
+    });
+    nodeIdCounter = maxId + 1;
+    console.log(`✅ Contador de IDs sincronizado. El próximo ID será: ${nodeIdCounter}`);
+
+    // Limpiar manejadores fantasma (esto ya estaba bien)
+    mainLayer.find('.line_handle').forEach(handle => handle.destroy());
+
+    // Reconectar listeners de líneas (esto ya estaba bien)
+    window.connectors = [];
+    mainLayer.find('.connector').forEach(connector => {
+        window.connectors.push(connector);
+        attachPointAddingListener(connector);
+    });
+
+    // Reconstruir eventos para CABLES y SPLITTERS
+    mainLayer.find('.cable, .splitter').forEach(group => {
+        const isChildOfBlock = group.getParent() && group.getParent().hasName('cable_block');
+
+        if (!isChildOfBlock) {
+            group.draggable(true);
+            group.off('dragmove transform');
+            group.on('dragmove', () => updateConnectedLines(group));
+            group.on('transform', () => updateConnectedLines(group));
+        } else {
+            group.draggable(false);
+        }
+
+        // ==========================================================================================
+        // === INICIO DE LA CORRECCIÓN CLAVE ========================================================
+        // ==========================================================================================
+        // Antes, esta sección borraba y recalculaba los connectionPoints, causando el desfase.
+        // Ahora, simplemente nos aseguramos de que los puntos cargados desde el JSON existan.
+        // El cálculo solo se ejecutará como un respaldo si los datos no se cargaron por alguna razón.
+        if (group.hasName('cable')) {
+            if (!group.attrs.connectionPoints || group.attrs.connectionPoints.length === 0) {
+                // Este código solo se ejecutará si se carga un dibujo muy antiguo sin datos de conexión.
+                console.warn(`⚠️ Reconstruyendo connectionPoints para el cable ${group.id()} porque no se encontraron en los datos cargados.`);
+                group.attrs.connectionPoints = [];
+                const numStrands = group.attrs.strandColors.length;
+                const firstLine = group.findOne('Line');
+                const direction = (firstLine && firstLine.points()[2] > 0) ? 'right' : 'left';
+                const directionMultiplier = (direction === 'left') ? -1 : 1;
+                const verticalSpacing = 15, cableWidth = 30, circleRadius = 8;
+                const finalX = cableWidth * directionMultiplier;
+                const circleX = finalX + (circleRadius * directionMultiplier);
+                const totalHeight = (numStrands - 1) * verticalSpacing;
+                const startY = -totalHeight / 2;
+                for (let i = 0; i < numStrands; i++) {
+                    const currentY = startY + (i * verticalSpacing);
+                    const strandColor = group.attrs.strandColors[i];
+                    group.attrs.connectionPoints.push({ x: circleX, y: currentY, color: strandColor, index: i });
+                }
+            }
+            // Si los puntos ya existen en group.attrs (que es lo normal al cargar desde JSON),
+            // ¡NO HACEMOS NADA! Y así evitamos el bug.
+        }
+        // ==========================================================================================
+        // === FIN DE LA CORRECCIÓN =================================================================
+        // ==========================================================================================
+    });
+
+
+    //codigo para mostarar la descripcion del splitter al cargar
+
+    mainLayer.find('.splitter').forEach(group => {
+        group.off('dblclick dbltap'); 
+        group.on('dblclick dbltap', () => {
+            const oldDescription = group.attrs.description || '';
+            const newDescription = prompt("Editar Descripción del Splitter:", oldDescription);
+            if (newDescription !== null) {
+                group.setAttr('description', newDescription);
+                const textNode = group.findOne('.description_text');
+                if (textNode) {
+                    textNode.text(newDescription);
+                }
+                mainLayer.draw();
+            }
+        });
+    });
+
+
+    // Reconectar eventos de los bloques de cables (esto ya estaba bien)
+    mainLayer.find('.cable_block').forEach(blockGroup => {
+        blockGroup.draggable(true);
+        blockGroup.off('dragmove transform');
+        blockGroup.on('dragmove transform', () => {
+            blockGroup.find('.cable').forEach(singleCable => {
+                updateConnectedLines(singleCable);
+            });
+        });
+    });
+
+    // Reconectar eventos generales del stage (esto ya estaba bien)
+    stage.off('click tap');
+    stage.on('click tap', (e) => {
+        if (currentMode === 'select') {
+            handleSelection(e);
+        } else {
+            handleLineDrawing(e);
+        }
+    });
+
+    console.log("🔗 Eventos, datos y listeners de línea reconectados correctamente. Total de conectores:", window.connectors.length);
+} *@
+
+function reconectarEventos() {
+    if (!stage || !mainLayer) return;
+
+    // Sincronizar el contador de IDs
+    let maxId = -1;
+    mainLayer.find('.cable, .splitter').forEach(group => {
+        const id = group.id();
+        if (id) {
+            const numericPart = parseInt(id.split('_')[1], 10);
+            if (!isNaN(numericPart) && numericPart > maxId) {
+                maxId = numericPart;
+            }
+        }
+    });
+    nodeIdCounter = maxId + 1;
+    console.log(`✅ Contador de IDs sincronizado. El próximo ID será: ${nodeIdCounter}`);
+
+    // Limpiar manejadores fantasma
+    mainLayer.find('.line_handle').forEach(handle => handle.destroy());
+
+    // Reconectar listeners de líneas
+    window.connectors = [];
+    mainLayer.find('.connector').forEach(connector => {
+        window.connectors.push(connector);
+        attachPointAddingListener(connector);
+    });
+
+    // Reconstruir eventos para CABLES y SPLITTERS
+    mainLayer.find('.cable, .splitter').forEach(group => {
+        const isChildOfBlock = group.getParent() && group.getParent().hasName('cable_block');
+
+        if (!isChildOfBlock) {
+            group.draggable(true);
+            group.off('dragmove transform');
+            group.on('dragmove', () => updateConnectedLines(group));
+            group.on('transform', () => updateConnectedLines(group));
+        } else {
+            group.draggable(false);
+        }
+
+        // Reconstruir connectionPoints para CABLES (sin cambios)
+        if (group.hasName('cable')) {
+            if (!group.attrs.connectionPoints || group.attrs.connectionPoints.length === 0) {
+                console.warn(`⚠️ Reconstruyendo connectionPoints para el cable ${group.id()}`);
+                group.attrs.connectionPoints = [];
+                const numStrands = group.attrs.strandColors.length;
+                const firstLine = group.findOne('Line');
+                const direction = (firstLine && firstLine.points()[2] > 0) ? 'right' : 'left';
+                const directionMultiplier = (direction === 'left') ? -1 : 1;
+                const verticalSpacing = 15, cableWidth = 30, circleRadius = 8;
+                const finalX = cableWidth * directionMultiplier;
+                const circleX = finalX + (circleRadius * directionMultiplier);
+                const totalHeight = (numStrands - 1) * verticalSpacing;
+                const startY = -totalHeight / 2;
+                for (let i = 0; i < numStrands; i++) {
+                    const currentY = startY + (i * verticalSpacing);
+                    const strandColor = group.attrs.strandColors[i];
+                    group.attrs.connectionPoints.push({ x: circleX, y: currentY, color: strandColor, index: i });
+                }
+            }
+        }
+    });
+
+    // ===================================================================
+    // === RECONECTAR EVENTOS PARA SPLITTERS CON COMENTARIOS POR PUERTO =
+    // ===================================================================
+    mainLayer.find('.splitter').forEach(group => {
+        // 1. Reconectar evento de doble clic en el GRUPO (descripción general)
+        group.off('dblclick dbltap');
+        group.on('dblclick dbltap', () => {
+            const oldDescription = group.attrs.description || '';
+            const newDescription = prompt("Editar Descripción General del Splitter:", oldDescription);
+            if (newDescription !== null) {
+                group.setAttr('description', newDescription);
+                const textNode = group.findOne('.description_text');
+                if (textNode) {
+                    textNode.text(newDescription);
+                }
+                mainLayer.draw();
+            }
+        });
+
+        // 2. Reconectar eventos de doble clic en cada PUERTO
+        group.find('Rect').forEach((rect, index) => {
+            if (index === 0) return; // Ignorar hitbox
+            
+            const portIndex = index;
+            rect.off('dblclick dbltap'); // Limpiar eventos anteriores
+            
+            rect.on('dblclick dbltap', (e) => {
+                e.cancelBubble = true;
+                const port = group.attrs.connectionPoints[portIndex];
+                if (!port) return;
+                
+                const oldDescription = port.description || '';
+                const newDescription = prompt(`Comentario para Puerto ${port.index}:`, oldDescription);
+                
+                if (newDescription !== null) {
+                    port.description = newDescription;
+                    displayPortComments(group);
+                    mainLayer.draw();
+                }
+            });
+        });
+
+        // 3. ✅ MOSTRAR los comentarios guardados en el JSON
+        displayPortComments(group);
+    });
+
+    // Reconectar eventos de los bloques de cables
+    mainLayer.find('.cable_block').forEach(blockGroup => {
+        blockGroup.draggable(true);
+        blockGroup.off('dragmove transform');
+        blockGroup.on('dragmove transform', () => {
+            blockGroup.find('.cable').forEach(singleCable => {
+                updateConnectedLines(singleCable);
+            });
+        });
+    });
+
+    // Reconectar eventos generales del stage
+    stage.off('click tap');
+    stage.on('click tap', (e) => {
+        if (currentMode === 'select') {
+            handleSelection(e);
+        } else {
+            handleLineDrawing(e);
+        }
+    });
+
+    console.log("🔗 Eventos reconectados correctamente. Total de conectores:", window.connectors.length);
+}
+
+
+
+ 
+
+            // =========================================================================
+            // === BOTÓN GUARDAR MEJORADO ==============================================
+            // =========================================================================
+            saveCanvasBtn.addEventListener('click', () => {
+                // Ocultar herramientas antes de guardar
+                transformer.nodes([]);
+                snapIndicator.hide();
+                mainLayer.draw();
+
+                // Verificar que hay contenido
+                const elementos = mainLayer.find('.cable, .splitter, .connector');
+                if (elementos.length === 0) {
+                    alert("No hay nada en el lienzo para guardar.");
+                    return;
+                }
+
+                // Verificar datos del mapa
+                if (!selectedMapElementData) {
+                    alert("Error: No se ha seleccionado ningún elemento del mapa. Cierra esta ventana y haz clic en una caja en el mapa primero.");
+                    return;
+                }
+
+                // Generar datos completos
+                const datosCompletos = generarDatosCompletos();
+
+                // Preparar payload para el servidor
+                const payload = {
+                    DrawingId: selectedMapElementData.DrawingId,
+                    ElementProjectId: selectedMapElementData.databaseId,
+                    ProjectId: currentProjectId,
+                    JsonContent: datosCompletos.jsonContent,
+                    SvgContent: datosCompletos.svgContent
+                };
+
+                console.log("📤 Enviando datos al servidor...", payload);
+
+                // Enviar al servidor
+                $.ajax({
+                    url: '/Project/Save',
+                    type: 'POST',
+                    contentType: 'application/json; charset=utf-8',
+                    dataType: 'json',
+                    data: JSON.stringify(payload),
+
+                    success: function (response) {
+                        console.log('✅ Guardado exitoso:', response.message);
+                        alert(`¡Dibujo guardado con éxito! ID: ${response.message}`);
+                        //window.location.reload(); // Recarga la página para reflejar cambios
+                        window.location = '/Project';
+
+                    },
+
+                    error: function (xhr, status, error) {
+                        console.error('❌ Error al guardar:', { status, error, response: xhr.responseText });
+                        alert(`Error al guardar: ${xhr.responseText || error}`);
+                    }
+                });
+            });
+
+            // --- 5. LÓGICA DE TECLAS Y BOTONES ---
+            clearCanvasBtn.addEventListener('click', () => {
+                limpiarLienzoKonva();
+            });
+
+        
+
+             function limpiarLienzoKonva() {
+             // 1. Desvinculamos el transformer actual para evitar errores
+                transformer.nodes([]);
+
+             // 2. Destruimos todos los hijos de la capa de forma segura
+                mainLayer.destroyChildren();
+
+                // ✅ LÍNEA AÑADIDA: Nos aseguramos de eliminar también la imagen
+               const refImage = mainLayer.findOne('#referenceImage');
+                if (refImage) {
+                  refImage.destroy();
+               }
+
+              // ===================================================================
+              // === ESTA ES LA CORRECCIÓN CLAVE ===================================
+              // ===================================================================
+              // 3. ¡VOLVEMOS A CREAR EL TRANSFORMER DESDE CERO!
+              //    Esto nos da una instancia nueva y "sana" en lugar de usar
+              //    la referencia al objeto que fue destruido.
+              transformer = new Konva.Transformer({
+              borderStroke: 'blue',
+              borderDash: [6, 2],
+              rotateEnabled: true,
+              anchorSize: 8,
+              name: 'tool_transformer' // Es importante mantener el nombre
+             });
+        // ===================================================================
+
+             // 4. Añadimos las herramientas (el nuevo transformer y el snapIndicator) a la capa vacía
+                mainLayer.add(transformer, snapIndicator);
+
+             // 5. Limpiamos nuestras variables de JavaScript
+               templateCableGroup = null;
+               window.connectors = [];
+
+             // 6. Redibujamos la capa
+               mainLayer.draw();
+
+              console.log("🧹 Lienzo completamente limpiado y reinicializado con un nuevo transformer.");
+          }
+
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+        const selectedNodes = transformer.nodes();
+        if (selectedNodes.length === 0) return;
+
+        // 1. Desvinculamos el transformer INMEDIATAMENTE.
+        //    Esto es crucial para prevenir que Konva intente operar sobre nodos que vamos a destruir.
+        transformer.nodes([]);
+
+        // 2. Destruimos los objetos que el usuario seleccionó.
+        selectedNodes.forEach(node => {
+            // Si el nodo es un cable o splitter, también debemos destruir las líneas conectadas a él.
+            if (node.hasName('cable') || node.hasName('splitter')) {
+                const idToDelete = node.id();
+                // Usamos un bucle inverso para borrar de forma segura mientras iteramos.
+                const connectors = mainLayer.find('.connector');
+                for (let i = connectors.length - 1; i >= 0; i--) {
+                    const line = connectors[i];
+                    if (line.attrs.cableAId === idToDelete || line.attrs.cableBId === idToDelete) {
+                        if (line.attrs.handle) {
+                            line.attrs.handle.destroy();
+                        }
+                        line.destroy();
+                    }
+                }
+            }
+            
+            // Si el propio nodo seleccionado era una línea, destruimos su manejador.
+            if (node.hasName('connector') && node.attrs.handle) {
+                node.attrs.handle.destroy();
+            }
+
+            // Finalmente, destruimos el propio nodo seleccionado.
+            node.destroy();
+        });
+
+        // ===================================================================
+        // === LA CLAVE DE LA ESTABILIDAD: RECONSTRUIR, NO FILTRAR ===========
+        // ===================================================================
+        // 3. Después de que toda la destrucción visual ha terminado, reconstruimos nuestro
+        //    array de datos desde la única "fuente de verdad": lo que queda en el lienzo.
+        //    Esto es mucho más seguro que intentar filtrar un array potencialmente corrupto.
+        //window.connectors = mainLayer.find('.connector').toArray();
+        window.connectors = [...mainLayer.find('.connector')];
+        // ===================================================================
+
+        // 4. Redibujamos el lienzo para mostrar el estado final.
+        mainLayer.draw();
+
+        console.log("🗑️ Borrado seguro completado. Conectores restantes:", window.connectors.length);
+    }
+
+    // ... tu lógica para duplicar con la tecla 'd' no cambia
+});
+
+
+
+    
+
+
+            // Cambio de color de líneas seleccionadas
+            colorPicker.addEventListener('input', () => {
+                const selectedNodes = transformer.nodes();
+                if (selectedNodes.length > 0) {
+                    selectedNodes.forEach(node => {
+                        if (node.getClassName() === 'Line' && node.name() === 'connector') {
+                            node.stroke(colorPicker.value);
+                        }
+                    });
+                    mainLayer.draw();
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (e.target.classList.contains('canvas-color-btn')) {
+                    const newColor = e.target.dataset.color;
+                    const selectedNodes = transformer.nodes();
+                    if (selectedNodes.length > 0) {
+                        selectedNodes.forEach(node => {
+                            if (node.getClassName() === 'Line' && node.name() === 'connector') {
+                                node.stroke(newColor);
+                            }
+                        });
+                        mainLayer.draw();
+                    }
+                }
+            });
+
+            window.limpiarLienzoKonvaGlobal = limpiarLienzoKonva;
+
+            console.log("🚀 Sistema Konva con guardado SVG inicializado correctamente");
+        });
+
+
+
+function displayImageOnCanvas(imageUrl) {
+    // 1. Limpieza: Busca si ya existe un widget y lo elimina.
+    //    Cambiamos el ID para referirnos al grupo completo.
+    const existingGroup = mainLayer.findOne('#referenceWidget');
+    if (existingGroup) {
+        existingGroup.destroy();
+    }
+
+    // 2. Cargamos la imagen desde la URL del controlador.
+    Konva.Image.fromURL(imageUrl, function (konvaImage) {
+        // --- Redimensionamiento (sin cambios) ---
+        const MAX_SIZE = 200;
+        const originalRatio = konvaImage.width() / konvaImage.height();
+        let newWidth, newHeight;
+        if (originalRatio > 1) { newWidth = MAX_SIZE; newHeight = MAX_SIZE / originalRatio; }
+        else { newHeight = MAX_SIZE; newWidth = MAX_SIZE * originalRatio; }
+        konvaImage.width(newWidth);
+        konvaImage.height(newHeight);
+        konvaImage.cornerRadius(4); // Pequeño detalle: esquinas redondeadas para la imagen.
+        konvaImage.setAttrs({ name: 'reference_image_content' });
+
+        // --- Creación del GRUPO interactivo con SOMBRA y preparación para ANIMACIÓN ---
+        const referenceGroup = new Konva.Group({
+            id: 'referenceWidget', // ID para el grupo completo
+            draggable: true,
+            name: 'reference_image',
+            // ✅ SOMBRA PARA EFECTO DE PROFUNDIDAD
+            shadowColor: 'black',
+            shadowBlur: 10,
+            shadowOffset: { x: 5, y: 5 },
+            shadowOpacity: 0.5,
+            // ✅ PREPARACIÓN PARA LA ANIMACIÓN DE ENTRADA
+            opacity: 0,
+            scaleX: 0.95,
+            scaleY: 0.95
+        });
+        
+        referenceGroup.add(konvaImage);
+
+        // --- Añadimos título y botón de cerrar (sin cambios) ---
+        const titleBackground = new Konva.Rect({ x: 0, y: newHeight, width: newWidth, height: 20, fill: 'black', opacity: 0.7 });
+        referenceGroup.add(titleBackground);
+        const titleText = new Konva.Text({ x: 5, y: newHeight + 2, text: 'Imagen de Referencia', fontSize: 14, fill: 'white', fontFamily: 'Calibri' });
+        referenceGroup.add(titleText);
+        const closeButton = new Konva.Text({ x: newWidth - 20, y: 5, text: '✖', fontSize: 18, fill: 'white', stroke: 'black', strokeWidth: 2, padding: 5, name: 'close_button' });
+        
+        // ✅ EVENTO DE CERRAR CON ANIMACIÓN DE SALIDA
+        closeButton.on('click tap', () => {
+            new Konva.Tween({
+                node: referenceGroup,
+                duration: 0.2,
+                opacity: 0,
+                scaleX: 0.95,
+                scaleY: 0.95,
+                easing: Konva.Easings.EaseOut,
+                onFinish: () => {
+                    referenceGroup.destroy(); // Se destruye al final de la animación
+                }
+            }).play();
+        });
+        referenceGroup.add(closeButton);
+
+        // --- Posicionamos el grupo (sin cambios) ---
+        const padding = 10;
+        const xPos = ((-stage.x() + stage.width()) / stage.scaleX()) - newWidth - padding;
+        const yPos = (-stage.y() / stage.scaleY()) + padding;
+        referenceGroup.position({ x: xPos, y: yPos });
+
+        // --- Añadimos el grupo a la capa y ejecutamos la animación de entrada ---
+        mainLayer.add(referenceGroup);
+        referenceGroup.moveToTop(); // Lo ponemos encima para que se vean los controles
+        
+        // ✅ EJECUTAMOS LA ANIMACIÓN DE ENTRADA
+        new Konva.Tween({
+            node: referenceGroup,
+            duration: 0.3,
+            opacity: 1,
+            scaleX: 1,
+            scaleY: 1,
+            easing: Konva.Easings.EaseOut
+        }).play();
+
+    }, function() {
+        alert("No se pudo cargar la imagen de referencia.");
+    });
+}
+
+
+
+
+$(document).ready(function () {
+    // Este bloque se ejecuta solo cuando el DOM está completamente cargado.
+    $('#imageUploadInput').on('change', function (e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+
+            reader.onload = function (event) {
+                const base64String = event.target.result.split(',')[1];
+                // const mimeType = file.type; // <-- Ya no lo necesitamos si no lo enviamos
+
+                if (!selectedMapElementData || !selectedMapElementData.databaseId) {
+                    console.error("Error: No se encontró el ID del proyecto del elemento. Asegúrate de que se ha hecho clic en un elemento del mapa.");
+                    alert("Error: No se pudo encontrar el ID del proyecto para guardar la imagen.");
+                    return;
+                }
+                const elementProjectId = selectedMapElementData.databaseId;
+
+                console.log(`Subiendo imagen para el ID del proyecto: ${elementProjectId}`);
+                console.log("Imagen convertida a Base64. Enviando al controlador...");
+
+                $.ajax({
+                    url: '/Project/SaveImage',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        base64Image: base64String,
+                        // mimeType: mimeType, // <-- ¡Eliminado de aquí!
+                        elementProjectId: elementProjectId
+                    }),
+                    success: function (response) {
+                        console.log('¡Imagen subida con éxito!');
+                        console.log('Respuesta del servidor:', response.message);
+                        alert(response.message);
+                         if(response.redirectToUrl)
+                         {
+                          console.log("Redirigiendo a:", response.redirectToUrl);
+                             window.location.href = response.redirectToUrl;
+
+                         }
+                    },
+                    error: function (xhr, status, error) {
+                        console.error('Error al subir la imagen:', error);
+                        alert('Hubo un error al subir la imagen. Por favor, inténtalo de nuevo.');
+                    }
+                });
+            };
+
+            reader.readAsDataURL(file);
+        }
+    });
+
+      
+      $('#viewSavedImageBtn').on('click', function() {
+          // 1. Validamos que tengamos un elemento del mapa seleccionado
+          if (!selectedMapElementData || !selectedMapElementData.databaseId) {
+             alert('Error: Para ver la imagen, primero debes seleccionar un elemento en el mapa.');
+             return;
+            }
+
+            const elementId = selectedMapElementData.databaseId;
+            const imageUrl = `/Project/GetImage/${elementId}`;
+
+            // 2. Llamamos a nuestra nueva función para que la ponga en el lienzo
+            displayImageOnCanvas(imageUrl);
+        });
+
+});
+
+  
+
+
     </script>
 
     @* Carga la API de Google Maps. ¡Asegúrate de que 'libraries=drawing' esté presente! *
    Reemplaza 'AIzaSyDp_qGGShO7CvdR5zFiH7KT4Mk3eGZO6VY' con tu CLAVE DE API real. *@
     <script async defer
-        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDp_qGGShO7CvdR5zFiH7KT4Mk3eGZO6VY&callback=initMap&v=weekly&solution_channel=GMP_CCS_simplepolygon_v2&libraries=drawing">
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDp_qGGShO7CvdR5zFiH7KT4Mk3eGZO6VY&callback=initMap&v=weekly&solution_channel=GMP_CCS_simplepolygon_v2&libraries=geometry,drawing">
         </script>
 }

@@ -19,6 +19,12 @@ public class ElementProject
 
     public double Lat { get; set; }
     public double Lng { get; set; }
+
+    public int? DrawingId { get; set; }
+    [ForeignKey("DrawingId")]
+    public virtual Drawing Drawing { get; set; }
+    public byte[]? Image { get; set; }
+
     // public int CoordinateBId { get; set; }
     // [ForeignKey("CoordinateBId")]
     // public virtual CoordinateB CoordinateB { get; set; }

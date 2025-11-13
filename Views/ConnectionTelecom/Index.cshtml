@@ -1,0 +1,354 @@
+@model GoogleRuta.Views.ViewModel.TelecomViewModel
+
+@{
+    ViewData["Title"] = "Gestión de Conexiones";
+}
+
+@section Styles
+{
+    <style>
+        .action-icon {
+            font-size: 1.25rem;
+            margin: 0 5px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: transform 0.2s;
+        }
+
+        .action-icon:hover {
+            transform: scale(1.2);
+        }
+
+        .delete-icon {
+            color: #dc3545;
+        }
+    </style>
+}
+
+<div class="mb-4">
+    <h1 class="display-4">@ViewData["Title"]</h1>
+    <p class="lead">Cree y administre las rutas de conexión de fibra óptica entre ODLs, Elfas y ODFs.</p>
+</div>
+
+<div class="mb-3">
+    <button class="btn btn-primary" data-toggle="modal" data-target="#connectionModal">
+        <i class="fas fa-plus mr-2"></i>Nueva Conexión
+    </button>
+</div>
+
+<!-- Modal para Crear Conexión -->
+<div class="modal fade" id="connectionModal" tabindex="-1" role="dialog" aria-labelledby="connectionModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="connectionModalLabel">Crear Nueva Ruta de Conexión</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="connectionForm">
+
+                    <!-- Fila para ODL -->
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="form-group">
+                                <label for="odlSelect">Origen: ODL <span class="text-danger">*</span></label>
+                                <select id="odlSelect" class="form-control" required>
+                                    <option value="">-- Seleccione un ODL --</option>
+                                    @foreach (var odl in Model.Odls)
+                                    {
+                                        <option value="@odl.Id">@odl.Name</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="portOdl">Puerto ODL <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="portOdl" placeholder="Ej: 5" required
+                                    min="1">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Fila para ELFA (SELECCIÓN) -->
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="form-group">
+                                <label for="elfaSelect">Paso Intermedio: Elfa <span class="text-danger">*</span></label>
+                                <select id="elfaSelect" class="form-control" required>
+                                    <option value="">-- Seleccione un Elfa --</option>
+                                    @foreach (var elfa in Model.Elfas)
+                                    {
+                                        <option value="@elfa.Id" data-is-duplex="@elfa.IsDuplex.ToString().ToLower()"
+                                            data-ports-per-group="@elfa.PortsPerGroup" data-group-count="@elfa.GroupCount">
+                                            @elfa.Name
+                                        </option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Fila para ELFA (PUERTOS SIMPLIFICADOS) -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <fieldset class="border p-2">
+                                <legend class="w-auto" style="font-size: 1rem;">Puerto de Entrada Elfa</legend>
+                                <div class="form-group">
+                                    <label for="groupElfaInput">Grupo/Fila <span class="text-danger">*</span></label>
+                                    <input type="number" class="form-control" id="groupElfaInput" value="1" required
+                                        min="1">
+                                </div>
+                                <div class="form-group">
+                                    <label for="portElfaInput_Visible">Número de Puerto <span
+                                            class="text-danger">*</span></label>
+                                    <input type="number" class="form-control" id="portElfaInput_Visible"
+                                        placeholder="Ej: 1" required min="1">
+                                </div>
+                            </fieldset>
+                        </div>
+                        <div class="col-md-6">
+                            <fieldset class="border p-2 bg-light">
+                                <legend class="w-auto" style="font-size: 1rem;">Puerto de Salida Elfa</legend>
+                                <div class="form-group">
+                                    <label>Puerto de Salida (Automático)</label>
+                                    <p id="puertoSalidaCalculado" class="form-control-plaintext">
+                                        <em>Seleccione un puerto de entrada para ver su correspondiente.</em>
+                                    </p>
+                                </div>
+                            </fieldset>
+                        </div>
+                    </div>
+
+                    <!-- Fila para ODF -->
+                    <div class="row mt-3">
+                        <div class="col-md-8">
+                            <div class="form-group">
+                                <label for="odfSelect">Destino: ODF <span class="text-danger">*</span></label>
+                                <select id="odfSelect" class="form-control" required>
+                                    <option value="">-- Seleccione un ODF --</option>
+                                    @foreach (var odf in Model.Odfs)
+                                    {
+                                        <option value="@odf.Id">@odf.Name</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="portOdf">Puerto ODF <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="portOdf" placeholder="Ej: 9" required
+                                    min="1">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="description">Descripción (Opcional)</label>
+                        <textarea class="form-control" id="description" rows="2"
+                            placeholder="Información adicional sobre la conexión..."></textarea>
+                    </div>
+
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" id="saveConnection">Guardar Conexión</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de Conexiones Existentes -->
+<table id="connectionsTable" class="display table table-striped table-bordered" style="width:100%">
+    <thead>
+        <tr>
+            <th>Id</th>
+            <th>Ruta de Conexión</th>
+            <th>Descripción</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+
+        @foreach (var conn in Model.ExistingConnections)
+        {
+            <tr>
+                <td>@conn.Id</td>
+                <td>
+                    <strong>ODL:</strong> @conn.Odl.Name (P:@conn.PortOdl) &#10142;
+                    <strong>Elfa:</strong> @conn.Elfa.Name (In:@conn.PortElfaInput, Out:@conn.PortElfaOutput) &#10142;
+                    <strong>ODF:</strong> @conn.Odf.Name (P:@conn.PortOdf)
+                </td>
+                <td>@conn.Description</td>
+                <td class="text-center">
+                    <a href="#" class="action-icon delete-icon" title="Eliminar Conexión"
+                        onclick="return confirmDelete('@conn.Id')">
+                        <i class="fas fa-trash-alt"></i>
+                    </a>
+                </td>
+            </tr>
+        }
+
+    </tbody>
+</table>
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            $('#connectionsTable').DataTable({
+                responsive: true,
+                language: {
+                    url: "//cdn.datatables.net/plug-ins/1.10.21/i18n/Spanish.json"
+                }
+            });
+
+            // --- LÓGICA DE CÁLCULO AUTOMÁTICO ---
+            function actualizarPuertoSalida() {
+                const selectedElfaOption = $('#elfaSelect').find('option:selected');
+                if (!selectedElfaOption.val()) { // Si no hay Elfa seleccionado
+                    $('#puertoSalidaCalculado').html('<em>Seleccione un Elfa primero.</em>');
+                    return;
+                }
+
+                const isDuplex = selectedElfaOption.data('is-duplex') === true;
+                const portsPerGroup = parseInt(selectedElfaOption.data('ports-per-group')) || 0;
+                const groupCount = parseInt(selectedElfaOption.data('group-count')) || 0;
+
+                const groupInput = parseInt($('#groupElfaInput').val()) || 0;
+                const portInputVisible = parseInt($('#portElfaInput_Visible').val()) || 0;
+
+                const displayArea = $('#puertoSalidaCalculado');
+
+                if (!isDuplex) {
+                    displayArea.html('<em>N/A para Elfas Simplex. Ingrese el puerto de salida manualmente.</em>');
+                    // Aquí deberías mostrar un campo de texto para el puerto de salida si es simplex.
+                    // Por simplicidad, este ejemplo se enfoca en el caso dúplex automático.
+                    return;
+                }
+
+                if (groupCount !== 2) {
+                    displayArea.html('<em>Cálculo automático solo para Elfas de 2 grupos.</em>');
+                    return;
+                }
+
+                if (groupInput && portInputVisible) {
+                    const outputGroup = (groupInput === 1) ? 2 : 1;
+                    const outputPortVisible = portInputVisible; // El número visible es el mismo
+                    displayArea.text(`Grupo ${outputGroup}, Puerto ${outputPortVisible}`);
+                } else {
+                    displayArea.html('<em>Ingrese un puerto de entrada para ver su correspondiente.</em>');
+                }
+            }
+
+            // Eventos para que el cálculo se actualice en tiempo real
+            $('#elfaSelect, #groupElfaInput, #portElfaInput_Visible').on('change keyup', actualizarPuertoSalida);
+
+            // --- LÓGICA DE GUARDADO ---
+            $('#saveConnection').click(function () {
+                const selectedElfaOption = $('#elfaSelect').find('option:selected');
+                const isDuplex = selectedElfaOption.data('is-duplex') === true;
+                const portsPerGroup = parseInt(selectedElfaOption.data('ports-per-group')) || 0;
+
+                const groupInput = parseInt($('#groupElfaInput').val()) || 0;
+                const portInputVisible = parseInt($('#portElfaInput_Visible').val()) || 0;
+
+                const portElfaInputAbsolute = ((groupInput - 1) * portsPerGroup) + portInputVisible;
+
+                let portElfaOutputAbsolute = 0;
+                if (isDuplex) {
+                    const outputGroup = (groupInput === 1) ? 2 : 1;
+                    portElfaOutputAbsolute = ((outputGroup - 1) * portsPerGroup) + portInputVisible;
+                } else {
+                    // Si el Elfa no es dúplex, necesitarías un campo de texto para que el usuario
+                    // ingrese el puerto de salida. Para este ejemplo simplificado, lo dejamos en 0.
+                    // En un caso real, aquí leerías el valor de ese campo de texto.
+                    // portElfaOutputAbsolute = parseInt($('#idDelCampoDeSalidaSimplex').val()) || 0;
+                }
+
+                const dataToSend = {
+                    OdlId: parseInt($('#odlSelect').val()),
+                    PortOdl: parseInt($('#portOdl').val()),
+                    ElfaId: parseInt($('#elfaSelect').val()),
+                    PortElfaInput: portElfaInputAbsolute,
+                    PortElfaOutput: portElfaOutputAbsolute,
+                    OdfId: parseInt($('#odfSelect').val()),
+                    PortOdf: parseInt($('#portOdf').val()),
+                    Description: $('#description').val(),
+                };
+
+                if (!dataToSend.OdlId || !dataToSend.PortOdl || !dataToSend.ElfaId || !portInputVisible || !dataToSend.OdfId || !dataToSend.PortOdf) {
+                    Swal.fire('Campos incompletos', 'Por favor, complete todos los campos obligatorios.', 'warning');
+                    return;
+                }
+
+                $.ajax({
+                    url: '/ConnectionTelecom',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(dataToSend),
+                    success: function (response) {
+                        if (response.success) {
+                            Swal.fire('¡Éxito!', response.message, 'success').then(() => {
+                                window.location.reload();
+                            });
+                        } else {
+                            Swal.fire('Error de Validación', response.message, 'error');
+                        }
+                    },
+                    error: function (xhr) {
+                        const errorMsg = xhr.responseJSON ? xhr.responseJSON.message : 'Hubo un error al procesar la solicitud.';
+                        Swal.fire('¡Error!', errorMsg, 'error');
+                    }
+                });
+            });
+
+            // Limpia el formulario cuando el modal se cierra
+            $('#connectionModal').on('hidden.bs.modal', function () {
+                $('#connectionForm')[0].reset();
+                actualizarPuertoSalida(); // Llama a la función para resetear el texto de salida
+            });
+        });
+
+        // Función de ejemplo para eliminar una conexión
+        function confirmDelete(connectionId) {
+            Swal.fire({
+                title: '¿Eliminar esta Conexión?',
+                text: "Esta acción liberará los puertos, pero no se puede revertir.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Sí, ¡eliminar!',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Si el usuario confirma, llamamos a la función AJAX
+                    $.ajax({
+                        // Construimos la URL correcta usando la ruta de tu controlador
+                        url: '/ConnectionTelecom/DeleteConnection/' + connectionId,
+                        type: 'DELETE',
+                        success: function (response) {
+                            if (response.success) {
+                                Swal.fire('¡Eliminada!', response.message, 'success').then(() => {
+                                    // Recargar la página para que la tabla se actualice
+                                    window.location.reload();
+                                });
+                            } else {
+                                Swal.fire('Error', response.message, 'error');
+                            }
+                        },
+                        error: function (xhr) {
+                            const errorMsg = xhr.responseJSON ? xhr.responseJSON.message : 'No se pudo eliminar la conexión.';
+                            Swal.fire('¡Error!', errorMsg, 'error');
+                        }
+                    });
+                }
+            });
+            return false; // Previene que el enlace <a> navegue
+        }
+    </script>
+}

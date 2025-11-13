@@ -18,10 +18,25 @@ namespace GoogleRuta.Data
         public DbSet<ElementType> ElementTypes { get; set; }
         public DbSet<ColorTraces> ColorTraces { get; set; }
         public DbSet<ColorThreadProject> ColorThreadProjects { get; set; }
+        public DbSet<Nodo> Nodos { get; set; }
+        public DbSet<Connection> Connections { get; set; }
+        public DbSet<Drawing> Drawings { get; set; }
+        public DbSet<Switchs> Switchs { get; set; }
+        public DbSet<SwitchPort> SwitchPorts { get; set; }
+        public DbSet<Router> Routers { get; set; }
+        public DbSet<Diagram> Diagrams { get; set; }
+
+        public DbSet<Elfa> Elfas { get; set; }
+        public DbSet<Odl> Odls { get; set; }
+        public DbSet<Odf> Odfs { get; set; }
+        public DbSet<ConnectionTelecom> ConnectionTelecoms { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            var conectionTable = modelBuilder.Entity<ConnectionTelecom>();
 
             // 1. Relación Project a CoordinateB: Cuando borras un Project, borra sus CoordinateBs.
             modelBuilder.Entity<Project>()
@@ -73,6 +88,75 @@ namespace GoogleRuta.Data
             //     .WithOne(ep => ep.CoordinateB)
             //     .HasForeignKey(ep => ep.CoordinateBId)
             //     .OnDelete(DeleteBehavior.Restrict);
+
+
+            // Agrega esto al final de tu método OnModelCreating
+            // ---
+            // Configuración para la relación de Origen (OriginNodoId)
+            modelBuilder.Entity<Connection>()
+                .HasOne(c => c.OriginNodo) // Una conexión tiene un nodo de origen
+                .WithMany()                // Un nodo puede ser el origen de muchas conexiones
+                .HasForeignKey(c => c.OrigenNodoId)
+                .OnDelete(DeleteBehavior.Restrict); // ¡Importante! No borrar en cascada
+
+            // Configuración para la relación de Destino (DestinationNodoId)
+            modelBuilder.Entity<Connection>()
+                .HasOne(c => c.DestinationNodo) // Una conexión tiene un nodo de destino
+                .WithMany()                    // Un nodo puede ser el destino de muchas conexiones
+                .HasForeignKey(c => c.DestinationNodoId)
+                .OnDelete(DeleteBehavior.Restrict); // ¡Importante! No borrar en cascada
+
+            // modelBuilder.Entity<SwitchPort>()
+            //              .HasKey(sp => new { sp.SwitchsId, sp.GroupNumber, sp.PortNumber }); //Clave primaria compuesta por SwitchsId y PortNumber
+
+            //  modelBuilder.Entity<SwitchPort>()
+            //              .HasKey(sp => new { sp.SwitchsId, sp.GroupNumber, sp.PortNumber }); //Clave primaria compuesta por SwitchsId y PortNumber
+
+            modelBuilder.Entity<SwitchPort>()
+                        .HasIndex(sp => sp.RouterId)
+                        .IsUnique();
+
+            modelBuilder.Entity<SwitchPort>()
+                        .HasOne(sp => sp.Router)          // Un puerto tiene UN router (o ninguno)
+                        .WithMany()                       // Router tiene MUCHOS puertos (que EF no necesita saber)
+                        .HasForeignKey(sp => sp.RouterId) // Usa RouterId
+                        .IsRequired(false);               // Permite que RouterId sea NULL (puerto vacío)
+
+            // 1. Relación con ODL (Uno a Muchos)
+            conectionTable
+                        .HasOne(c => c.Odl)
+                        .WithMany(o => o.ConnectionTelecoms)
+                        .HasForeignKey(c => c.OdlId);
+
+            // 2. Relación con Elfa (Uno a Muchos)
+            conectionTable
+                .HasOne(c => c.Elfa)
+                .WithMany(e => e.ConnectionTelecoms)
+                .HasForeignKey(c => c.ElfaId);
+
+            // 3. Relación con ODF (Uno a Muchos)
+            conectionTable
+                .HasOne(c => c.Odf)
+                .WithMany(o => o.ConnectionTelecoms)
+                .HasForeignKey(c => c.OdfId);
+
+            // 4. LA PARTE MÁS IMPORTANTE: Definir las restricciones de unicidad
+            // Esto crea los `UNIQUE constraints` en la base de datos para garantizar
+            // que no se pueda usar el mismo puerto dos veces.
+
+            // El par (OdlId, PuertoOdl) debe ser único.
+            conectionTable.HasIndex(c => new { c.OdlId, c.PortOdl }).IsUnique();
+
+            // El par (ElfaId, PuertoElfaEntrada) debe ser único.
+            conectionTable.HasIndex(c => new { c.ElfaId, c.PortElfaInput }).IsUnique();
+
+            // El par (ElfaId, PuertoElfaSalida) debe ser único.
+            conectionTable.HasIndex(c => new { c.ElfaId, c.PortElfaOutput }).IsUnique();
+
+            // El par (OdfId, PuertoOdf) debe ser único.
+            conectionTable.HasIndex(c => new { c.OdfId, c.PortOdf }).IsUnique();
+
+
 
         }
     }

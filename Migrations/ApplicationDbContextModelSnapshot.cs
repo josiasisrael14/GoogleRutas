@@ -68,6 +68,109 @@ namespace GoogleRuta.Migrations
                     b.ToTable("ColorTraces");
                 });
 
+            modelBuilder.Entity("GoogleRuta.Models.Connection", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Color")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("DestinationNodoId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DestinoPuntoIndex")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DrawingId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("JsonIntermediatePoints")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("OrigenNodoId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OrigenPuntoIndex")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OriginNodoId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("Thickness")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Type")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DestinationNodoId");
+
+                    b.HasIndex("DrawingId");
+
+                    b.HasIndex("OrigenNodoId");
+
+                    b.ToTable("Connections");
+                });
+
+            modelBuilder.Entity("GoogleRuta.Models.ConnectionTelecom", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Datetime")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("ElfaId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OdfId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OdlId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PortElfaInput")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PortElfaOutput")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PortOdf")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PortOdl")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ElfaId", "PortElfaInput")
+                        .IsUnique();
+
+                    b.HasIndex("ElfaId", "PortElfaOutput")
+                        .IsUnique();
+
+                    b.HasIndex("OdfId", "PortOdf")
+                        .IsUnique();
+
+                    b.HasIndex("OdlId", "PortOdl")
+                        .IsUnique();
+
+                    b.ToTable("ConnectionTelecoms");
+                });
+
             modelBuilder.Entity("GoogleRuta.Models.CoordinateB", b =>
                 {
                     b.Property<int>("Id")
@@ -75,6 +178,10 @@ namespace GoogleRuta.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Color")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<double>("Lat")
                         .HasColumnType("float");
@@ -85,11 +192,54 @@ namespace GoogleRuta.Migrations
                     b.Property<int>("ProjectId")
                         .HasColumnType("int");
 
+                    b.Property<string>("SegmentId")
+                        .HasColumnType("nvarchar(max)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ProjectId");
 
                     b.ToTable("CoordinateBs");
+                });
+
+            modelBuilder.Entity("GoogleRuta.Models.Diagram", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("JsonContent")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Diagrams");
+                });
+
+            modelBuilder.Entity("GoogleRuta.Models.Drawing", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("JsonContent")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SvgContent")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Drawings");
                 });
 
             modelBuilder.Entity("GoogleRuta.Models.ElementProject", b =>
@@ -103,8 +253,14 @@ namespace GoogleRuta.Migrations
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("DrawingId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("ElementTypeId")
                         .HasColumnType("int");
+
+                    b.Property<byte[]>("Image")
+                        .HasColumnType("varbinary(max)");
 
                     b.Property<double>("Lat")
                         .HasColumnType("float");
@@ -116,6 +272,8 @@ namespace GoogleRuta.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("DrawingId");
 
                     b.HasIndex("ElementTypeId");
 
@@ -132,6 +290,12 @@ namespace GoogleRuta.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("IconColor")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("IconoSvgContent")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("IconoUrl")
                         .HasColumnType("nvarchar(max)");
 
@@ -142,6 +306,135 @@ namespace GoogleRuta.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("ElementTypes");
+                });
+
+            modelBuilder.Entity("GoogleRuta.Models.Elfa", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("GroupCount")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsDuplex")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("PortsPerGroup")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TotalPorts")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Elfas");
+                });
+
+            modelBuilder.Entity("GoogleRuta.Models.Nodo", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<double>("CoordinateX")
+                        .HasColumnType("float");
+
+                    b.Property<double>("CoordinateY")
+                        .HasColumnType("float");
+
+                    b.Property<int>("DrawingId")
+                        .HasColumnType("int");
+
+                    b.Property<double>("Rotation")
+                        .HasColumnType("float");
+
+                    b.Property<int?>("Size")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StrandColorsJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Type")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TypeSplitter")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DrawingId");
+
+                    b.ToTable("Nodos");
+                });
+
+            modelBuilder.Entity("GoogleRuta.Models.Odf", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("GroupCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("PortsPerGroup")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TotalPorts")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Odfs");
+                });
+
+            modelBuilder.Entity("GoogleRuta.Models.Odl", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ColumnCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("PortsPerColumn")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TotalPorts")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Odls");
                 });
 
             modelBuilder.Entity("GoogleRuta.Models.Project", b =>
@@ -159,6 +452,88 @@ namespace GoogleRuta.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Projects");
+                });
+
+            modelBuilder.Entity("GoogleRuta.Models.Router", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("IPAddress")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Routers");
+                });
+
+            modelBuilder.Entity("GoogleRuta.Models.SwitchPort", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("GroupNumber")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PortNumber")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RouterId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SwitchsId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RouterId")
+                        .IsUnique();
+
+                    b.HasIndex("SwitchsId");
+
+                    b.ToTable("SwitchPorts");
+                });
+
+            modelBuilder.Entity("GoogleRuta.Models.Switchs", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("GroupCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("PortsPerGroup")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TotalPorts")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Switchs");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -376,6 +751,60 @@ namespace GoogleRuta.Migrations
                     b.Navigation("Project");
                 });
 
+            modelBuilder.Entity("GoogleRuta.Models.Connection", b =>
+                {
+                    b.HasOne("GoogleRuta.Models.Nodo", "DestinationNodo")
+                        .WithMany()
+                        .HasForeignKey("DestinationNodoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GoogleRuta.Models.Drawing", "Drawing")
+                        .WithMany("Connections")
+                        .HasForeignKey("DrawingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GoogleRuta.Models.Nodo", "OriginNodo")
+                        .WithMany()
+                        .HasForeignKey("OrigenNodoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("DestinationNodo");
+
+                    b.Navigation("Drawing");
+
+                    b.Navigation("OriginNodo");
+                });
+
+            modelBuilder.Entity("GoogleRuta.Models.ConnectionTelecom", b =>
+                {
+                    b.HasOne("GoogleRuta.Models.Elfa", "Elfa")
+                        .WithMany("ConnectionTelecoms")
+                        .HasForeignKey("ElfaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GoogleRuta.Models.Odf", "Odf")
+                        .WithMany("ConnectionTelecoms")
+                        .HasForeignKey("OdfId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GoogleRuta.Models.Odl", "Odl")
+                        .WithMany("ConnectionTelecoms")
+                        .HasForeignKey("OdlId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Elfa");
+
+                    b.Navigation("Odf");
+
+                    b.Navigation("Odl");
+                });
+
             modelBuilder.Entity("GoogleRuta.Models.CoordinateB", b =>
                 {
                     b.HasOne("GoogleRuta.Models.Project", "Project")
@@ -389,6 +818,10 @@ namespace GoogleRuta.Migrations
 
             modelBuilder.Entity("GoogleRuta.Models.ElementProject", b =>
                 {
+                    b.HasOne("GoogleRuta.Models.Drawing", "Drawing")
+                        .WithMany()
+                        .HasForeignKey("DrawingId");
+
                     b.HasOne("GoogleRuta.Models.ElementType", "ElementType")
                         .WithMany("ElementProject")
                         .HasForeignKey("ElementTypeId")
@@ -400,9 +833,39 @@ namespace GoogleRuta.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.Navigation("Drawing");
+
                     b.Navigation("ElementType");
 
                     b.Navigation("Project");
+                });
+
+            modelBuilder.Entity("GoogleRuta.Models.Nodo", b =>
+                {
+                    b.HasOne("GoogleRuta.Models.Drawing", "Drawing")
+                        .WithMany("Nodos")
+                        .HasForeignKey("DrawingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Drawing");
+                });
+
+            modelBuilder.Entity("GoogleRuta.Models.SwitchPort", b =>
+                {
+                    b.HasOne("GoogleRuta.Models.Router", "Router")
+                        .WithMany()
+                        .HasForeignKey("RouterId");
+
+                    b.HasOne("GoogleRuta.Models.Switchs", "Switchs")
+                        .WithMany()
+                        .HasForeignKey("SwitchsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Router");
+
+                    b.Navigation("Switchs");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -461,9 +924,31 @@ namespace GoogleRuta.Migrations
                     b.Navigation("ColorThreadProjects");
                 });
 
+            modelBuilder.Entity("GoogleRuta.Models.Drawing", b =>
+                {
+                    b.Navigation("Connections");
+
+                    b.Navigation("Nodos");
+                });
+
             modelBuilder.Entity("GoogleRuta.Models.ElementType", b =>
                 {
                     b.Navigation("ElementProject");
+                });
+
+            modelBuilder.Entity("GoogleRuta.Models.Elfa", b =>
+                {
+                    b.Navigation("ConnectionTelecoms");
+                });
+
+            modelBuilder.Entity("GoogleRuta.Models.Odf", b =>
+                {
+                    b.Navigation("ConnectionTelecoms");
+                });
+
+            modelBuilder.Entity("GoogleRuta.Models.Odl", b =>
+                {
+                    b.Navigation("ConnectionTelecoms");
                 });
 
             modelBuilder.Entity("GoogleRuta.Models.Project", b =>

@@ -50,6 +50,78 @@
             color: #c82333;
             /* Un rojo más oscuro al pasar el mouse */
         }
+
+
+        /* Estilos para el selector de color de icono */
+
+        .color-selector-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .color-option {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 3px solid transparent;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .color-option:hover {
+            transform: scale(1.1);
+            border-color: #333;
+        }
+
+        .color-option.selected {
+            border-color: #007bff;
+            box-shadow: 0 0 10px rgba(0, 123, 255, 0.5);
+            transform: scale(1.15);
+        }
+
+        .color-option::after {
+            content: '✓';
+            color: white;
+            font-weight: bold;
+            font-size: 16px;
+            display: none;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+        }
+
+        .color-option.selected::after {
+            display: block;
+        }
+
+        .icon-preview-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+
+        .custom-color-picker {
+            width: 50px;
+            height: 40px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        td svg {
+            width: 100%;
+            height: 100%;
+            fill: currentColor;
+            /* Esto hace que tome el color del contenedor */
+        }
     </style>
 }
 <div class="text-center">
@@ -61,6 +133,10 @@
     <a href="https://fontawesome.com/search?q=box&o=r" class="buscar-icono icono-profesional">
         <i class="fas fa-search fa-lg" title="Buscar icono"></i>
     </a>
+
+    <button type="button" class="btn btn-secondary" data-toggle="modal" data-target="#iconPickerModal">
+        <i class="fas fa-search"></i> Buscar Íconos (Referencia)
+    </button>
 </div>
 
 <div class="modal fade" id="registroModal" tabindex="-1" role="dialog" aria-labelledby="registroModalLabel"
@@ -103,9 +179,62 @@
                                         accept="image/*" />
                                     <small class="form-text text-muted">Sube un ícono representativo del tipo de
                                         elemento (32x32 recomendado).</small>
-                                    <div id="preview-icono" class="mt-2" style="display: none;">
-                                        <img id="icono-preview-img" src=""
-                                            style="width: 32px; height: 32px; object-fit: contain;" />
+
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <label>Color del Ícono</label>
+                                    <input type="hidden" name="IconColor" id="iconColor" value="#000000" />
+
+                                    <!-- Colores predefinidos -->
+                                    <div class="color-selector-container">
+                                        <div class="color-option selected" data-color="#000000"
+                                            style="background-color: #000000;"></div>
+                                        <div class="color-option" data-color="#FF0000"
+                                            style="background-color: #FF0000;"></div>
+                                        <div class="color-option" data-color="#00FF00"
+                                            style="background-color: #00FF00;"></div>
+                                        <div class="color-option" data-color="#0000FF"
+                                            style="background-color: #0000FF;"></div>
+                                        <div class="color-option" data-color="#FFFF00"
+                                            style="background-color: #FFFF00;"></div>
+                                        <div class="color-option" data-color="#FF8000"
+                                            style="background-color: #FF8000;"></div>
+                                        <div class="color-option" data-color="#800080"
+                                            style="background-color: #800080;"></div>
+                                        <div class="color-option" data-color="#FFC0CB"
+                                            style="background-color: #FFC0CB;"></div>
+                                    </div>
+
+                                    <!-- Color personalizado -->
+                                    <div style="display: flex; align-items: center; gap: 10px; margin-top: 10px;">
+                                        <label class="mb-0">Personalizado:</label>
+                                        <input type="color" id="customColorPicker" class="custom-color-picker"
+                                            value="#000000">
+                                        <input type="text" id="hexInput" class="form-control" style="max-width: 100px;"
+                                            placeholder="#000000">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Vista previa con color -->
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div id="preview-container" class="icon-preview-container" style="display: none;">
+                                    <div>
+                                        <label>Original:</label>
+                                        <div id="preview-icono">
+                                            <img id="icono-preview-img" src="" style="width: 64px; height: 64px;" />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label>Con Color:</label>
+                                        <canvas id="iconoColorizado" width="64" height="64"></canvas>
                                     </div>
                                 </div>
                             </div>
@@ -122,6 +251,33 @@
         </div>
     </div>
 </div>
+
+
+
+
+<div class="modal fade" id="iconPickerModal" tabindex="-1" role="dialog" aria-labelledby="iconPickerModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="iconPickerModalLabel">Buscador de Íconos (Referencia)</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted">Haz clic en un ícono para copiar su clase CSS en el portapapeles.</p>
+                <input type="text" id="iconSearch" class="form-control mb-3"
+                    placeholder="Buscar ícono por nombre (ej: user, car, building)...">
+                <div id="icon-list"
+                    style="max-height: 400px; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 5px;">
+                    <!-- Los íconos se cargarán aquí con JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <table id="myTable" class="display">
     <thead>
         <tr>
@@ -137,9 +293,12 @@
         {
             <tr>
                 <td>@element.Id</td>
+
                 <td>
-                    <img src="@element.IconoUrl" alt="Ícono" style="width: 32px; height: 32px; object-fit: contain;" />
+                    <img src="@element.IconoUrl" alt="Ícono"
+                        style="width: 32px; height: 32px; object-fit: contain; fill: @element.IconColor;" />
                 </td>
+
                 <td>@element.Name</td>
                 <td>
                     <a class="action-icon" onclick="return editar('@element.Id')">
@@ -162,17 +321,162 @@
 
         $(document).ready(function () {
 
+
+            let imagenOriginal = null;
+            // Modificar tu evento existente de cambio de archivo
             document.getElementById("iconoFile").addEventListener("change", function (event) {
                 const file = event.target.files[0];
                 if (file) {
                     const reader = new FileReader();
                     reader.onload = function (e) {
-                        document.getElementById("icono-preview-img").src = e.target.result;
-                        document.getElementById("preview-icono").style.display = "block";
+                        imagenOriginal = new Image();
+                        imagenOriginal.onload = function () {
+                            document.getElementById("icono-preview-img").src = e.target.result;
+                            document.getElementById("preview-container").style.display = "flex";
+                            aplicarColorAIcono();
+                        };
+                        imagenOriginal.src = e.target.result;
                     };
                     reader.readAsDataURL(file);
                 }
             });
+
+            // Manejo de selección de colores
+            $('.color-option').click(function () {
+                $('.color-option').removeClass('selected');
+                $(this).addClass('selected');
+
+                const color = $(this).data('color');
+                $('#iconColor').val(color);
+                $('#customColorPicker').val(color);
+                $('#hexInput').val(color);
+
+                aplicarColorAIcono();
+            });
+
+            $('#customColorPicker').change(function () {
+                const color = $(this).val().toUpperCase();
+                $('#iconColor').val(color);
+                $('#hexInput').val(color);
+                aplicarColorAIcono();
+            });
+
+            function aplicarColorAIcono() {
+                if (!imagenOriginal) return;
+
+                const canvas = document.getElementById('iconoColorizado');
+                const ctx = canvas.getContext('2d');
+                const color = $('#iconColor').val();
+
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(imagenOriginal, 0, 0, canvas.width, canvas.height);
+
+                // Aplicar color
+                ctx.globalCompositeOperation = 'source-atop';
+                ctx.fillStyle = color;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.globalCompositeOperation = 'source-over';
+            }
+
+
+            @* let allIcons = [];
+            fetch('/js/fa-icons.json')
+                .then(response => response.json())
+                .then(data => {
+                    allIcons = data;
+                    renderIcons(allIcons);
+                })
+                .catch(error => console.error('Error al cargar los íconos de Font Awesome:', error));
+
+            const iconListContainer = $('#icon-list');
+
+            function renderIcons(icons) {
+                iconListContainer.empty();
+                icons.forEach(iconClass => {
+                    const iconElement = $(`
+                        <div class="icon-item p-2 rounded" data-icon-class="${iconClass}" style="font-size: 28px; cursor: pointer;" title="Copiar '${iconClass}'">
+                            <i class="${iconClass}"></i>
+                        </div>
+                    `);
+                    iconListContainer.append(iconElement);
+                });
+            }
+
+            $('#iconSearch').on('keyup', function () {
+                const searchTerm = $(this).val().toLowerCase().replace('fa-solid fa-', '').trim();
+                const filteredIcons = allIcons.filter(iconClass => iconClass.replace('fa-solid fa-', '').includes(searchTerm));
+                renderIcons(filteredIcons);
+            });
+
+            // ¡NUEVA FUNCIONALIDAD! Copiar al portapapeles al hacer clic.
+            $(document).on('click', '.icon-item', function () {
+                const iconClass = $(this).data('icon-class');
+                navigator.clipboard.writeText(iconClass).then(() => {
+                    // Feedback visual para el usuario
+                    const originalIcon = $(this).html();
+                    $(this).html('<span class="text-success">¡Copiado!</span>');
+                    setTimeout(() => {
+                        $(this).html(originalIcon);
+                    }, 1500); // Vuelve al ícono original después de 1.5 segundos
+                });
+            }); *@
+
+                let allIcons = [];
+            fetch('/js/fa-icons.json')
+                .then(response => response.json())
+                .then(data => {
+                    allIcons = data;
+                    renderIconsForDownload(allIcons); // Cambiamos el nombre de la función para mayor claridad
+                })
+                .catch(error => console.error('Error al cargar los íconos de Font Awesome:', error));
+
+            const iconListContainer = $('#icon-list');
+
+            function renderIconsForDownload(icons) {
+                iconListContainer.empty();
+                icons.forEach(iconClass => {
+                    const iconElement = $(`
+                    <div class="icon-item p-2 rounded" data-icon-class="${iconClass}" style="font-size: 28px; cursor: pointer;" title="Descargar ${iconClass}.svg">
+                        <i class="${iconClass}"></i>
+                    </div>
+                `);
+                    iconListContainer.append(iconElement);
+                });
+            }
+
+            $('#iconSearch').on('keyup', function () {
+                const searchTerm = $(this).val().toLowerCase().replace('fa-solid fa-', '').trim();
+                const filteredIcons = allIcons.filter(iconClass => iconClass.replace('fa-solid fa-', '').includes(searchTerm));
+                renderIconsForDownload(filteredIcons);
+            });
+
+            // ¡¡NUEVA LÓGICA DE DESCARGA!!
+            $(document).on('click', '.icon-item', function () {
+                const iconClass = $(this).data('icon-class');
+
+                // Extraemos el nombre del ícono de la clase, ej: "fa-solid fa-user" -> "user"
+                const iconName = iconClass.replace('fa-solid fa-', '');
+
+                // 1. Crear un elemento de enlace <a> en memoria
+                const downloadLink = document.createElement('a');
+
+                // 2. Establecer la ruta al archivo SVG estático que generamos
+                downloadLink.href = `/icons/svg/${iconName}.svg`;
+
+                // 3. Establecer el nombre del archivo que se descargará
+                downloadLink.download = `${iconName}.svg`;
+
+                // 4. Añadir el enlace al cuerpo del documento (es necesario para que funcione en Firefox)
+                document.body.appendChild(downloadLink);
+
+                // 5. Simular un clic en el enlace para iniciar la descarga
+                downloadLink.click();
+
+                // 6. Limpiar eliminando el enlace del cuerpo del documento
+                document.body.removeChild(downloadLink);
+            });
+
+
 
             $('#myTable').DataTable();
 
@@ -240,6 +544,7 @@
                 formData.append('name', $('#name').val());
                 formData.append('id', $('#id').val());
                 formData.append('iconoUrl', $('#iconoUrl').val());
+                formData.append('iconColor', $('#iconColor').val());
                 // Solo agrega la nueva imagen si el usuario seleccionó una
                 var fileInput = $('#iconoFile')[0];
                 if (fileInput.files.length > 0) {
@@ -274,6 +579,8 @@
                     }
                 });
             });
+
+
         });
 
         function editar(id) {

@@ -1,0 +1,271 @@
+@model IEnumerable<GoogleRuta.Models.Odf>
+
+@{
+    ViewData["Title"] = "ODF"; // ✅ Cambiado: Título de la página
+}
+
+@section Styles
+{
+   
+    <style>
+        .icono-profesional {
+            color: #0056b3;
+            font-size: 24px;
+            transition: color 0.3s ease;
+        }
+
+        .icono-profesional:hover {
+            color: #007bff;
+        }
+
+        .action-icon {
+            color: #0056b3;
+            font-size: 1.25rem;
+            margin: 0 5px;
+            cursor: pointer;
+            transition: color 0.2s ease-in-out;
+        }
+
+        .action-icon:hover {
+            color: #007bff;
+            text-decoration: none;
+        }
+
+        .eliminar-elemento .fas.fa-trash-alt {
+            color: #dc3545;
+        }
+
+        .eliminar-elemento:hover .fas.fa-trash-alt {
+            color: #c82333;
+        }
+    </style>
+}
+
+<div class="text-center">
+    <a href="#" class="registrar-usuario icono-profesional" data-toggle="modal" data-target="#registroModal"
+        style="margin-right: 15px;">
+        <i class="fas fa-plus-circle fa-lg"></i>
+    </a>
+</div>
+
+<!-- ✅ Cambiado: Título del Modal -->
+<div class="modal fade" id="registroModal" tabindex="-1" role="dialog" aria-labelledby="registroModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="registroModalLabel">Gestión de ODF</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <input type="hidden" id="id" /> <!-- El ID para editar -->
+                    <div class="container-fluid">
+
+                        <!-- ✅ Campos del formulario para ODF (son idénticos a Elfa) -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="name">Nombre <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="name" placeholder="Ingrese el nombre"
+                                        required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="description">Descripción</label>
+                                    <input type="text" class="form-control" id="description"
+                                        placeholder="Ingrese la descripción">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="totalPorts">Puertos Totales</label>
+                                    <input type="number" class="form-control" id="totalPorts" placeholder="Ej: 144">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="groupCount">Grupos</label>
+                                    <input type="number" class="form-control" id="groupCount" placeholder="Ej: 12">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="portsPerGroup">Puertos por Grupo</label>
+                                    <input type="number" class="form-control" id="portsPerGroup" placeholder="Ej: 12">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" id="guardar">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ✅ Cambiado: Columnas de la tabla para ODF -->
+<table id="myTable" class="display">
+    <thead>
+        <tr>
+            <th>Id</th>
+            <th>Nombre</th>
+            <th>Descripción</th>
+            <th>Puertos Totales</th>
+            <th>Grupos</th>
+            <th>Ptos/Grupo</th>
+            <th>Editar</th>
+            <th>Eliminar</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>@item.Id</td>
+                <td>@item.Name</td>
+                <td>@item.Description</td>
+                <td>@item.TotalPorts</td>
+                <td>@item.GroupCount</td>
+                <td>@item.PortsPerGroup</td>
+                <td>
+                    <a class="action-icon" onclick="return editar('@item.Id')">
+                        <i class='fas fa-edit'></i>
+                    </a>
+                </td>
+                <td>
+                    <a href="#" class="eliminar-elemento action-icon" data-id="@item.Id"
+                        onclick="return confirmarEliminacion('@item.Id')">
+                        <i class="fas fa-trash-alt"></i>
+                    </a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            $('#myTable').DataTable();
+
+            $('#guardar').click(function () {
+                // ✅ Cambiado: Objeto con los datos del ODF
+                const dataToSend = {
+                    Id: $('#id').val() ? parseInt($('#id').val()) : 0,
+                    Name: $('#name').val(),
+                    Description: $('#description').val(),
+                    TotalPorts: parseInt($('#totalPorts').val()) || 0,
+                    GroupCount: parseInt($('#groupCount').val()) || 0,
+                    PortsPerGroup: parseInt($('#portsPerGroup').val()) || 0
+                };
+
+                if (!dataToSend.Name) {
+                    Swal.fire('Error', 'El campo Nombre es obligatorio.', 'error');
+                    return;
+                }
+
+                const isUpdate = dataToSend.Id > 0;
+                const url = isUpdate ? '/Odf/Update' : '/Odf/Add'; // ✅ Cambiado: URL Dinámica para ODF
+
+                $.ajax({
+                    url: url,
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(dataToSend),
+                    success: function (response) {
+                        Swal.fire({
+                            title: '¡Éxito!',
+                            text: response.message,
+                            icon: 'success'
+                        }).then(() => {
+                            window.location.reload();
+                        });
+                    },
+                    error: function (xhr) {
+                        const errorMsg = xhr.responseJSON ? xhr.responseJSON.message : 'Hubo un error al guardar.';
+                        Swal.fire('¡Error!', errorMsg, 'error');
+                    }
+                });
+            });
+
+            $('#registroModal').on('hidden.bs.modal', function (e) {
+                $('#id').val('');
+                $('#name').val('');
+                $('#description').val('');
+                $('#totalPorts').val('');
+                $('#groupCount').val('');
+                $('#portsPerGroup').val('');
+            });
+        });
+
+        function editar(id) {
+            $.ajax({
+                method: "GET",
+                url: "/Odf/GetById/" + id, // ✅ Cambiado: URL para obtener ODF
+                dataType: "json",
+                success: function (data) {
+                    // ✅ La respuesta del controlador tiene el objeto dentro de una propiedad 'odf'
+                    const odfData = data.odf;
+
+                    // ✅ Rellenar el formulario con datos de ODF
+                    $('#id').val(odfData.id);
+                    $('#name').val(odfData.name);
+                    $('#description').val(odfData.description);
+                    $('#totalPorts').val(odfData.totalPorts);
+                    $('#groupCount').val(odfData.groupCount);
+                    $('#portsPerGroup').val(odfData.portsPerGroup);
+
+                    $("#registroModal").modal('show');
+                },
+                error: function () {
+                    Swal.fire('¡Error!', 'No se pudieron cargar los datos para editar.', 'error');
+                }
+            });
+            return false;
+        }
+
+        function confirmarEliminacion(id) {
+            Swal.fire({
+                title: '¿Estás seguro?',
+                text: "¡No podrás revertir esto!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Sí, ¡eliminar!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    eliminarOdf(id); // ✅ Llamada a la función específica de ODF
+                }
+            });
+            return false;
+        }
+
+        // Función para realizar la eliminación
+        function eliminarOdf(id) {
+            $.ajax({
+                url: '/Odf/Delete/' + id, // ✅ Cambiado: URL para eliminar ODF
+                type: 'DELETE',
+                success: function (response) {
+                    Swal.fire('¡Eliminado!', response.message, 'success')
+                        .then(() => {
+                            window.location.reload();
+                        });
+                },
+                error: function () {
+                    Swal.fire('¡Error!', 'No se pudo eliminar el registro.', 'error');
+                }
+            });
+        }
+    </script>
+}

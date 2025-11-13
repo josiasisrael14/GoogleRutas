@@ -73,9 +73,9 @@
 
         /* Elimina los estilos para 'fecha-header' ya que no hay fechas */
         /* th.fecha-header,
-                                                                td.fecha-header {
-                                                                    // ... (estas reglas ya no van) ...
-                                                                } */
+                                                                        td.fecha-header {
+                                                                            // ... (estas reglas ya no van) ...
+                                                                        } */
 
         /* Otros estilos que ya tenías y que no son problemáticos */
         #myTable .btn-xs {
@@ -418,11 +418,12 @@
 @section Scripts {
     <script>
         let processedCoords = [];
-
-        processedCoords = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(TempData["ProcessedCoordinates"] ?? new List<object>()));
+        let placedElements =[];
+        @* processedCoords = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(TempData["ProcessedCoordinates"] ?? new List<object>())); *@
+        processedCoords = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(TempData["SavedSegments"] ?? new List<object>()));
         var projectIdFromTempData = @Html.Raw(Json.Serialize(TempData["ProjectId"]));
         var nameFromTempData = @Html.Raw(Json.Serialize(TempData["Name"]));
-        const placedElements = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(TempData["PlacedElements"] ?? "[]"));
+         placedElements = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(TempData["PlacedElements"] ?? "[]"));
 
         console.log("📍 Coordenadas desde backend:", processedCoords);
         console.log(" ver id que se enviara al modal de project", projectIdFromTempData);
@@ -596,7 +597,7 @@
                 }
             });
 
-             // abre el modal automaticamente
+            // abre el modal automaticamente
             $('#registroModal').modal('show');
             // Lógica cuando el modal se muestra (se abre)
             $('#registroModal').on('shown.bs.modal', function (e) {
@@ -688,7 +689,8 @@
                 const dataToSend = {
                     id: $('#id').val() ? parseInt($('#id').val()) : 0, // Asegúrate de tener un input con id="id" si editas
                     name: $('#nombre').val(),
-                    coordinates: [], // Inicializamos el arreglo de coordenadas
+                    //coordinates: [], // Inicializamos el arreglo de coordenadas
+                    segments: [],
                     placedElementse: []
                 };
 
@@ -697,7 +699,9 @@
 
                     if (typeof processedCoords === 'string') {
                         try {
-                            dataToSend.coordinates = JSON.parse(processedCoords);
+                            //dataToSend.coordinates = JSON.parse(processedCoords);
+                            dataToSend.segments = JSON.parse(processedCoords);
+
                         } catch (e) {
                             console.error("Error al parsear las coordenadas:", e);
                             // Opcional: mostrar un error al usuario
@@ -706,7 +710,7 @@
                         }
                     } else {
                         // Si ya es un objeto/array, lo usamos directamente.
-                        dataToSend.coordinates = processedCoords;
+                        dataToSend.segments = processedCoords;
                     }
                 } else {
                     // Opcional: si las coordenadas son obligatorias, puedes mostrar un error aquí
@@ -722,7 +726,7 @@
                     console.log("No se están enviando elementos colocados.");
                 } *@
 
-                                                    if (placedElements && placedElements.length > 0) {
+                                                            if (placedElements && placedElements.length > 0) {
                     // Comprobamos si es un string, como vimos en tu captura de pantalla.
                     if (typeof placedElements === 'string') {
                         try {
@@ -778,7 +782,7 @@
 
         });
 
-        function verProyecto(id) {
+        @* function verProyecto(id) {
             $.ajax({
                 method: "GET",
                 url: "/Project/GetById/" + id,
@@ -792,6 +796,7 @@
                             projectId: id,
                             coordinates: data.coordinates,
                             name: data.name,
+                            segments: data.segments,
                             placedElements: data.placedElementse
                         };
                         $.ajax({
@@ -825,7 +830,67 @@
             });
 
             return false;
-        }
+        } *@
+
+            function verProyecto(id) {
+                $.ajax({
+                    method: "GET",
+                    url: "/Project/GetById/" + id,
+                    dataType: "json",
+                    success: function (data) {
+                        // --- ¡ESTA ES LA CONDICIÓN CORREGIDA Y MEJORADA! ---
+                        // Verificamos si 'data' existe y si tiene CUALQUIER tipo de geometría 
+                        // (segmentos, coordenadas antiguas, o incluso solo elementos colocados).
+                        const tieneSegmentos = data && data.segments && data.segments.length > 0;
+                        const tieneCoordenadasAntiguas = data && data.coordinates && data.coordinates.length > 0;
+                        const tieneElementos = data && data.placedElementse && data.placedElementse.length > 0;
+
+                        if (tieneSegmentos || tieneCoordenadasAntiguas || tieneElementos) {
+
+                            console.log("Datos completos recibidos de GetById:", data);
+
+                            // El objeto que envías ya está perfecto, no necesita cambios.
+                            const postData = {
+                                projectId: id,
+                                coordinates: data.coordinates,
+                                name: data.name,
+                                segments: data.segments,
+                                placedElements: data.placedElementse
+                            };
+
+                            // La segunda llamada AJAX para redirigir tampoco necesita cambios.
+                            $.ajax({
+                                type: "POST",
+                                url: "/Project/RedirectToDiseno",
+                                contentType: "application/json",
+                                data: JSON.stringify(postData),
+                                success: function (response) {
+                                    if (response.success) {
+                                        document.getElementById('loaderOverlay').style.display = 'flex';
+                                        setTimeout(function () {
+                                            window.location.href = response.redirectUrl;
+                                        }, 1200);
+                                    } else {
+                                        alert("No se pudo redirigir");
+                                    }
+                                },
+                                error: function (err) {
+                                    alert("Error al redirigir: " + err.responseText);
+                                }
+                            });
+
+                        } else {
+                            // Este mensaje es más preciso para el usuario.
+                            alert("Este proyecto no tiene ningún trazado o elemento para diseñar.");
+                        }
+                    },
+                    error: function (errormessage) {
+                        alert("Error al obtener proyecto: " + errormessage.responseText);
+                    }
+                });
+
+                return false;
+            }
 
         function confirmarEliminacion(id) {
             Swal.fire({
@@ -862,7 +927,7 @@
                         window.location.reload();
                     });
                 },
-                                                                @* success: function (response) {
+                                                                        @* success: function (response) {
                     Swal.fire({
                         title: '¡Eliminado!',
                         text: response.message,
@@ -907,7 +972,7 @@
                         confirmButtonText: 'Aceptar'
                     });
                 }
-                                                            @* error: function () {
+                                                                    @* error: function () {
                     Swal.fire({
                         title: '¡Error!',
                         text: 'Hubo un error en la transaccion.',
@@ -915,8 +980,8 @@
                         confirmButtonText: 'Aceptar'
                     });
                 } *@
-                                                            });
-                                                        }
+                                                                    });
+                                                                }
     </script>
 
     <script>
